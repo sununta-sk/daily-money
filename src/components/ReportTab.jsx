@@ -1,65 +1,87 @@
 import React from 'react'
-import useDeviceType from '../hooks/useDeviceType'
+import { formatThaiBaht, formatNumber } from '../utils/formatters'
+import ReportCard from './ReportCard'
 
 const ReportTab = ({ 
-  monthlySalary, 
+  incomes, 
   costs, 
-  calculateMonthlyCosts, 
-  calculateDailyFreeMoney 
+  moneyInBank,
+  calculateTotalMoney,
+  calculateRecurringIncome,
+  calculateMonthlyExpenses, 
+  calculateDailyFreeMoney,
+  calculateHowLongYouCanLive
 }) => {
-  const { isMobile } = useDeviceType()
+  const totalMoney = calculateTotalMoney();
+  const recurringIncome = calculateRecurringIncome();
+  const totalExpenses = calculateMonthlyExpenses();
+  const dailyFreeMoney = calculateDailyFreeMoney();
+  const survivalTime = calculateHowLongYouCanLive();
 
   return (
-    <div className={`space-y-6 ${isMobile ? 'p-4' : ''}`}>
-      <div className="p-4 bg-blue-50 border rounded">
-        <h2 className="text-xl font-semibold mb-4">Detailed Budget Report</h2>
-        <div className={`grid gap-4 ${
-          isMobile 
-            ? 'grid-cols-1' 
-            : 'grid-cols-1 md:grid-cols-3'
-        }`}>
-          <div className="p-3 bg-white rounded border">
-            <div className="text-sm text-gray-600">Monthly Salary</div>
-            <div className={`font-bold ${isMobile ? 'text-3xl' : 'text-2xl'}`}>
-              ฿{parseFloat(monthlySalary) || 0}
-            </div>
-          </div>
-          <div className="p-3 bg-white rounded border">
-            <div className="text-sm text-gray-600">Monthly Expenses</div>
-            <div className={`font-bold text-red-600 ${isMobile ? 'text-3xl' : 'text-2xl'}`}>
-              ฿{calculateMonthlyCosts().toFixed(2)}
-            </div>
-          </div>
-          <div className="p-3 bg-white rounded border">
-            <div className="text-sm text-gray-600">Daily Free Money</div>
-            <div className={`font-bold text-green-600 ${isMobile ? 'text-3xl' : 'text-2xl'}`}>
-              ฿{calculateDailyFreeMoney().toFixed(2)}
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="">
+      <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Financial Report</h2>
+      
+      <div className="grid gap-4">
+        <ReportCard
+          title="Money in Bank"
+          value={formatThaiBaht(parseFloat(moneyInBank) || 0)}
+          subtitle="Current bank balance"
+          backgroundColor="bg-gray-50"
+          textColor="text-gray-600"
+          valueColor="text-gray-800"
+          inline={true}
+        />
 
-      <div className="p-4 bg-yellow-50 border rounded">
-        <h3 className="text-lg font-semibold mb-3">Expense Breakdown</h3>
-        <div className="space-y-2">
-          {costs.map(cost => {
-            const monthlyAmount = cost.period === 'daily' ? cost.amount * 30 :
-                                cost.period === 'weekly' ? cost.amount * 4.33 :
-                                cost.period === 'yearly' ? cost.amount / 12 :
-                                cost.period === 'one-off' ? cost.amount :
-                                cost.amount
-            return (
-              <div key={cost.id} className={`flex justify-between items-center p-2 bg-white rounded ${
-                isMobile ? 'flex-col gap-1 text-center' : ''
-              }`}>
-                <span className={isMobile ? 'text-lg' : ''}>{cost.name}</span>
-                <span className={`font-medium ${isMobile ? 'text-lg' : ''}`}>
-                  ฿{monthlyAmount.toFixed(2)}/month
-                </span>
-              </div>
-            )
-          })}
-        </div>
+        <ReportCard
+          title="Total Money Available"
+          value={formatThaiBaht(totalMoney)}
+          subtitle="Bank + all income sources"
+          backgroundColor="bg-gray-50"
+          textColor="text-gray-600"
+          valueColor="text-gray-800"
+          inline={true}
+        />
+
+        <ReportCard
+          title="Monthly Recurring Income"
+          value={formatThaiBaht(recurringIncome)}
+          subtitle="Regular income streams only"
+          backgroundColor="bg-gray-50"
+          textColor="text-gray-600"
+          valueColor="text-gray-800"
+          inline={true}
+        />
+
+        <ReportCard
+          title="Total Monthly Expenses"
+          value={formatThaiBaht(totalExpenses)}
+          subtitle="Including spend limits"
+          backgroundColor="bg-gray-50"
+          textColor="text-gray-600"
+          valueColor="text-gray-800"
+          inline={true}
+        />
+
+        <ReportCard
+          title="Daily Free Money"
+          value={formatThaiBaht(dailyFreeMoney)}
+          subtitle="Available daily after expenses"
+          backgroundColor="bg-gray-50"
+          textColor="text-gray-600"
+          valueColor="text-gray-800"
+          inline={true}
+        />
+
+        <ReportCard
+          title="How Long You Can Live"
+          value={survivalTime.message}
+          subtitle="Based on current income and expenses"
+          backgroundColor="bg-gray-50"
+          textColor="text-gray-600"
+          valueColor="text-gray-800"
+          inline={true}
+        />
       </div>
     </div>
   )
