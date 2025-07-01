@@ -1,22 +1,25 @@
 import React from 'react'
 import { formatThaiBaht, formatNumber } from '../utils/formatters'
+import { 
+  calculateTotalMoney, 
+  calculateRecurringIncome, 
+  calculateMonthlyExpenses, 
+  calculateDailyFreeMoney, 
+  calculateHowLongYouCanLive 
+} from '../utils/calculations'
 import ReportCard from './ReportCard'
 
 const ReportTab = ({ 
   incomes, 
   costs, 
   moneyInBank,
-  calculateTotalMoney,
-  calculateRecurringIncome,
-  calculateMonthlyExpenses, 
-  calculateDailyFreeMoney,
-  calculateHowLongYouCanLive
+  selectedCurrency
 }) => {
-  const totalMoney = calculateTotalMoney();
-  const recurringIncome = calculateRecurringIncome();
-  const totalExpenses = calculateMonthlyExpenses();
-  const dailyFreeMoney = calculateDailyFreeMoney();
-  const survivalTime = calculateHowLongYouCanLive();
+  const totalMoney = calculateTotalMoney(incomes, costs, moneyInBank);
+  const recurringIncome = calculateRecurringIncome(incomes);
+  const totalExpenses = calculateMonthlyExpenses(costs);
+  const dailyFreeMoney = calculateDailyFreeMoney(incomes, costs);
+  const survivalTime = calculateHowLongYouCanLive(incomes, costs, moneyInBank);
 
   return (
     <div className="">
@@ -75,7 +78,7 @@ const ReportTab = ({
 
         <ReportCard
           title="How Long You Can Live"
-          value={survivalTime.message}
+          value={survivalTime === Infinity ? 'Forever' : `${Math.round(survivalTime)} days`}
           subtitle="Based on current income and expenses"
           backgroundColor="bg-gray-50"
           textColor="text-gray-600"

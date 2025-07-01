@@ -1,4 +1,5 @@
 import React from 'react'
+import { formatDate } from '../utils/formatters'
 
 const EditableCard = ({ 
   isEditing, 
@@ -6,7 +7,8 @@ const EditableCard = ({
   onSave, 
   onCancel, 
   onDelete,
-  children 
+  children,
+  timestamp
 }) => {
   return (
     <div 
@@ -19,6 +21,11 @@ const EditableCard = ({
     >
       <div className="flex-1">
         {children}
+        {timestamp && (
+          <div className="text-xs text-gray-500 mt-1">
+            {formatDate(timestamp)}
+          </div>
+        )}
       </div>
       
       {isEditing && (
