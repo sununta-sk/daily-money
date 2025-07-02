@@ -3,9 +3,9 @@ import Navbar from './components/Navbar';
 import AddArea from './components/AddArea';
 import ItemsList from './components/ItemsList';
 import ReportTab from './components/ReportTab';
+import WhaleLogo from './components/WhaleLogo';
 import { onAuthChange, getUserData, signInWithGoogle } from './utils/firebase';
 import { fetchExchangeRates } from './utils/currency';
-import { getSortedItems, calculateTotalMoney } from './utils/calculations';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -59,16 +59,8 @@ function App() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="flex items-center justify-center mb-4">
-            <svg className="w-16 h-16" viewBox="0 0 24 24" fill="none">
-                <ellipse cx="12" cy="14" rx="8" ry="4" fill="#93C5FD"/>
-                <path d="M4 14 Q2 12 4 10 Q6 12 4 14" fill="#93C5FD"/>
-                <ellipse cx="12" cy="14" rx="5" ry="2" fill="#DBEAFE"/>
-                <circle cx="10" cy="12" r="1" fill="#1E40AF"/>
-                <path d="M10 15 Q12 16 14 15" stroke="#1E40AF" strokeWidth="0.5" fill="none"/>
-                <path d="M12 8 Q12 6 12 4" stroke="#93C5FD" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                <circle cx="12" cy="4" r="0.5" fill="#93C5FD"/>
-              </svg>
-            </div>
+            <WhaleLogo className="w-16 h-16" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily Money</h1>
           <p className="mb-4 text-gray-600">Please sign in to use the budget dashboard</p>
               <button
@@ -107,17 +99,16 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 p-2 flex flex-col">
       <Navbar 
         user={user}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         selectedCurrency={selectedCurrency}
         setSelectedCurrency={setSelectedCurrency}
-        totalMoney={calculateTotalMoney(incomes, costs, moneyInBank)}
       />
       
-      <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col flex-1">
         {activeTab !== 'report' && (
           <>
             <AddArea 

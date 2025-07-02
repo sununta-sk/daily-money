@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef, useEffect } from 'react'
 import { formatDate } from '../utils/formatters'
 
 const EditableCard = ({ 
@@ -8,11 +8,31 @@ const EditableCard = ({
   onCancel, 
   onDelete,
   children,
-  timestamp
+  timestamp,
+  period
 }) => {
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isEditing && cardRef.current && !cardRef.current.contains(event.target)) {
+        onCancel();
+      }
+    };
+
+    if (isEditing) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isEditing, onCancel]);
+
   return (
     <div 
-      className={`p-3 sm:p-4 border rounded cursor-pointer transition-all duration-200 flex items-center justify-between ${
+      ref={cardRef}
+      className={`p-3 border rounded cursor-pointer transition-all duration-200 flex items-center justify-between ${
         isEditing 
           ? 'border-gray-300' 
           : 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm border-gray-200'
@@ -21,9 +41,14 @@ const EditableCard = ({
     >
       <div className="flex-1">
         {children}
-        {timestamp && (
-          <div className="text-xs text-gray-500 mt-1">
-            {formatDate(timestamp)}
+        {(timestamp || period) && (
+          <div className="flex justify-between items-baseline mt-1">
+            <span className="text-xs text-gray-500 leading-none">
+              {timestamp ? formatDate(timestamp) : ''}
+            </span>
+            <span className="text-xs text-gray-500 leading-none">
+              {period || ''}
+            </span>
           </div>
         )}
       </div>
@@ -35,12 +60,6 @@ const EditableCard = ({
             className="px-3 py-1 border border-gray-300 rounded text-sm text-black"
           >
             Save
-          </button>
-          <button 
-            onClick={onCancel}
-            className="px-3 py-1 border border-gray-300 rounded text-sm text-black"
-          >
-            Cancel
           </button>
           <button 
             onClick={onDelete}

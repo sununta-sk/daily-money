@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
+import { useSpring, animated } from '@react-spring/web';
 import EditableCard from './EditableCard';
 import { updateIncome, updateCost, updateGoal, deleteIncome, deleteCost, deleteGoal } from '../utils/firebase';
 import { capitalizeFirstLetter } from '../utils/formatters';
+import { formatCurrency } from '../utils/currency';
 
 const ItemsList = ({ 
   activeTab,
@@ -27,17 +29,114 @@ const ItemsList = ({
   const [editPrice, setEditPrice] = useState('');
   const [editContribution, setEditContribution] = useState('');
 
+  // Visual indicator states and refs
+  const [hasMoneyInBank, setHasMoneyInBank] = useState(false);
+  const [hasSpendLimit, setHasSpendLimit] = useState(false);
+  const [dotPosition, setDotPosition] = useState({ x: 0, y: 0 });
+  const moneyInputRef = useRef(null);
+  const spendInputRef = useRef(null);
+
+  // React Spring animation for bouncing dot - realistic physics-based bounce
+  const bounceAnimation = useSpring({
+    to: async (next) => {
+      while (true) {
+        // Start from rest position (0)
+        await next({ y: 0, config: { tension: 200, friction: 25, mass: 0.8 } });
+        // Small bounce up
+        await next({ y: -2, config: { tension: 300, friction: 12, mass: 0.8 } });
+        // Return with slight overshoot
+        await next({ y: 0.5, config: { tension: 250, friction: 20, mass: 0.8 } });
+        // Settle back to rest
+        await next({ y: 0, config: { tension: 180, friction: 22, mass: 0.8 } });
+        // Tiny secondary bounce
+        await next({ y: -1, config: { tension: 220, friction: 18, mass: 0.8 } });
+        // Final settle
+        await next({ y: 0, config: { tension: 160, friction: 25, mass: 0.8 } });
+      }
+    },
+    from: { y: 0 }
+  });
+
+  // Update validation states when values change
+  React.useEffect(() => {
+    setHasMoneyInBank(moneyInBank && parseFloat(moneyInBank) > 0);
+    setHasSpendLimit(spendLimit && parseFloat(spendLimit) > 0);
+  }, [moneyInBank, spendLimit]);
+
+  // Track input positions for visual indicators
+  useLayoutEffect(() => {
+    const updatePosition = () => {
+      const activeInput = activeTab === 'goals' ? spendInputRef.current : moneyInputRef.current;
+      if (activeInput) {
+        const rect = activeInput.getBoundingClientRect();
+        const inputStyle = window.getComputedStyle(activeInput);
+        const paddingLeft = parseInt(inputStyle.paddingLeft);
+        
+        setDotPosition({
+          x: rect.left + paddingLeft + 16, // Natural text position + spacebar-like gap
+          y: rect.top + rect.height / 2 // center vertically
+        });
+      }
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition);
+    };
+  }, [activeTab, moneyInBank, spendLimit]);
+
   const getItems = () => {
+    let items = [];
+    
     switch (activeTab) {
       case 'income':
-        return incomes || [];
+        items = incomes || [];
+        break;
       case 'expenses':
-        return costs || [];
+        items = costs || [];
+        break;
       case 'goals':
-        return goals || [];
+        items = goals || [];
+        break;
       default:
-        return [];
+        items = [];
     }
+    
+    // Sort items by timestamp
+    return items.sort((a, b) => {
+      // Try multiple possible timestamp fields
+      const getTimestamp = (item) => {
+        // Try different possible timestamp field names
+        const timestamp = item.timestamp || item.createdAt || item.date || item.created;
+        
+        if (!timestamp) {
+          // If no timestamp found, use current date as fallback
+          return new Date();
+        }
+        
+        // Handle different timestamp formats
+        if (timestamp.toDate) {
+          return timestamp.toDate(); // Firestore timestamp
+        } else if (timestamp.seconds) {
+          return new Date(timestamp.seconds * 1000); // Firestore timestamp object
+        } else {
+          return new Date(timestamp); // Regular date string/number
+        }
+      };
+      
+      const dateA = getTimestamp(a);
+      const dateB = getTimestamp(b);
+      
+      if (sortOrder === 'newest') {
+        return dateB - dateA; // Newest first
+      } else {
+        return dateA - dateB; // Oldest first
+      }
+    });
   };
 
   const getTitle = () => {
@@ -135,7 +234,7 @@ const ItemsList = ({
     }
   };
 
-  const renderEditForm = (item) => {
+  const renderEditForm = () => {
     if (activeTab === 'goals') {
       return (
         <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -144,7 +243,7 @@ const ItemsList = ({
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onClick={(e) => e.stopPropagation()}
-            className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base"
+            className="border border-gray-300 rounded px-3 py-2 text-base"
           />
           <input
             type="number"
@@ -153,7 +252,7 @@ const ItemsList = ({
             value={editPrice}
             onChange={(e) => setEditPrice(e.target.value)}
             onClick={(e) => e.stopPropagation()}
-            className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base"
+            className="border border-gray-300 rounded px-3 py-2 text-base"
           />
           <input
             type="number"
@@ -162,7 +261,7 @@ const ItemsList = ({
             value={editContribution}
             onChange={(e) => setEditContribution(e.target.value)}
             onClick={(e) => e.stopPropagation()}
-            className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base"
+            className="border border-gray-300 rounded px-3 py-2 text-base"
           />
         </div>
       );
@@ -175,7 +274,7 @@ const ItemsList = ({
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
           onClick={(e) => e.stopPropagation()}
-          className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base"
+          className="border border-gray-300 rounded px-3 py-2 text-base"
         />
         <input
           type="number"
@@ -184,13 +283,13 @@ const ItemsList = ({
           value={editAmount}
           onChange={(e) => setEditAmount(e.target.value)}
           onClick={(e) => e.stopPropagation()}
-          className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base"
+          className="border border-gray-300 rounded px-3 py-2 text-base"
         />
         <select
           value={editPeriod}
           onChange={(e) => setEditPeriod(e.target.value)}
           onClick={(e) => e.stopPropagation()}
-          className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base"
+          className="border border-gray-300 rounded px-3 py-2 text-base"
         >
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
@@ -210,16 +309,16 @@ const ItemsList = ({
       
       return (
         <div className="flex flex-col">
-          <span className="font-medium text-sm sm:text-base mb-2">
+          <span className="font-medium text-base mb-2 text-gray-700">
             {capitalizeFirstLetter(item.name)}
           </span>
           <div className="flex justify-between items-center">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <span className="text-gray-600 text-sm">
-                Price: ฿{item.price?.toLocaleString()}
+                Price: {formatCurrency(item.price, selectedCurrency)}
               </span>
               <span className="text-gray-600 text-sm">
-                Daily: ฿{item.dailyContribution?.toLocaleString()}
+                Daily: {formatCurrency(item.dailyContribution, selectedCurrency)}
               </span>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
@@ -237,62 +336,94 @@ const ItemsList = ({
 
     return (
       <div className="flex justify-between items-center">
-        <span className="font-medium text-sm sm:text-base">
+        <span className="font-medium text-base text-gray-700">
           {capitalizeFirstLetter(item.name)}
         </span>
-        <span className="font-medium text-sm sm:text-base">
-          ฿{item.amount?.toLocaleString()} ({item.period})
+        <span className="font-medium text-base">
+          {formatCurrency(item.amount, selectedCurrency)}
         </span>
       </div>
     );
   };
 
   const items = getItems();
+  
+  // Debug: Log first few items to see timestamp structure
+  if (items.length > 0) {
+    console.log('🔍 Debug: First item structure:', {
+      id: items[0].id,
+      name: items[0].name,
+      timestamp: items[0].timestamp,
+      createdAt: items[0].createdAt,
+      date: items[0].date,
+      created: items[0].created,
+      allFields: Object.keys(items[0])
+    });
+  }
 
   return (
-    <div className="p-2 sm:p-4 border rounded mb-4 sm:mb-6">
-      <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">{getTitle()}</h2>
-      
-      {/* Control Bar */}
-      <div className="flex justify-between items-center mb-3 sm:mb-4">
-        <div className="flex items-center gap-2">
+    <div className="p-3 border rounded mb-2 flex-1">
+      {/* Header Section */}
+      <div className="flex flex-col mb-4">
+        {/* Title and Special Unit Line */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-700">{getTitle()}</h2>
+          
           {activeTab === 'income' || activeTab === 'expenses' ? (
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Money in Bank:</label>
+            <div className="flex items-center gap-1 relative">
+              <label className="text-xs font-medium text-gray-600">Money in Bank:</label>
               <input 
+                ref={moneyInputRef}
                 type="number"
                 placeholder="0"
                 value={moneyInBank}
                 onChange={(e) => setMoneyInBank(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm w-24"
+                className="border border-gray-300 rounded px-1 py-1 text-xs w-16"
               />
             </div>
           ) : activeTab === 'goals' ? (
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Spend Limit:</label>
+            <div className="flex items-center gap-1 relative">
+              <label className="text-xs font-medium text-gray-600">Spend Limit:</label>
               <input 
+                ref={spendInputRef}
                 type="number"
                 placeholder="0"
                 value={spendLimit}
                 onChange={(e) => setSpendLimit(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm w-24"
+                className="border border-gray-300 rounded px-1 py-1 text-xs w-16"
               />
             </div>
           ) : null}
         </div>
         
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">Sort:</label>
-          <select 
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-          </select>
+        {/* Sort Line */}
+        <div className="flex justify-end items-center mt-2">
+          <div className="flex items-center gap-1">
+            <label className="text-xs font-medium text-gray-600">Sort:</label>
+            <select 
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="border border-gray-300 rounded px-1 py-1 text-xs"
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+            </select>
+          </div>
         </div>
       </div>
+
+      {/* Visual Indicator - Bouncing Red Dot */}
+      {((activeTab === 'income' || activeTab === 'expenses') && !hasMoneyInBank) || 
+       (activeTab === 'goals' && !hasSpendLimit) ? (
+        <animated.div 
+          className="fixed w-1.5 h-1.5 bg-red-500 rounded-full z-10"
+          style={{
+            left: `${dotPosition.x}px`,
+            top: `${dotPosition.y}px`,
+            transform: bounceAnimation.y.to(y => `translate(-50%, calc(-50% + ${y}px))`),
+          }}
+        />
+      ) : null}
       
       <div className="grid gap-2">
         {items.map(item => (
@@ -303,10 +434,11 @@ const ItemsList = ({
             onSave={handleSave}
             onCancel={handleCancel}
             onDelete={() => handleDelete(item.id)}
-            timestamp={item.timestamp}
+            timestamp={item.timestamp || item.createdAt || item.date || item.created}
+            period={activeTab !== 'goals' ? item.period : undefined}
           >
             {editingItem === item.id ? (
-              renderEditForm(item)
+              renderEditForm()
             ) : (
               renderDisplayContent(item)
             )}

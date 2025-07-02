@@ -11,11 +11,11 @@ const ReportCard = ({
 }) => {
   if (inline) {
     return (
-      <div className={`p-3 sm:p-4 border rounded w-full cursor-pointer transition-all duration-200 hover:bg-gray-100 hover:shadow-sm border-gray-200 ${backgroundColor}`}>
+      <div className={`p-4 border rounded w-full cursor-pointer transition-all duration-200 hover:bg-gray-100 hover:shadow-sm border-gray-200 ${backgroundColor}`}>
         <div className="flex flex-col">
-          <span className="font-medium text-sm sm:text-base mb-2">{title}</span>
+          <span className="font-medium text-base mb-2">{title}</span>
           <div className="flex justify-between items-center">
-            <span className="font-medium text-sm sm:text-base">
+            <span className="font-medium text-base">
               {value}
             </span>
             {subtitle && (
@@ -30,10 +30,10 @@ const ReportCard = ({
   }
 
   return (
-    <div className={`p-3 sm:p-4 border rounded w-full cursor-pointer transition-all duration-200 hover:bg-gray-100 hover:shadow-sm border-gray-200 ${backgroundColor}`}>
-      <span className="font-medium text-sm sm:text-base block mb-2">{title}</span>
+    <div className={`p-4 border rounded w-full cursor-pointer transition-all duration-200 hover:bg-gray-100 hover:shadow-sm border-gray-200 ${backgroundColor}`}>
+      <span className="font-medium text-base block mb-2">{title}</span>
       <div className="flex justify-between items-center">
-        <div className={`font-medium text-sm sm:text-base break-words ${valueColor}`}>
+        <div className={`font-medium text-base break-words ${valueColor}`}>
           {value}
         </div>
         {subtitle && (

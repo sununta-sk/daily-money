@@ -1,5 +1,5 @@
 import React from 'react'
-import { formatThaiBaht, formatNumber } from '../utils/formatters'
+import { formatCurrency } from '../utils/currency'
 import { 
   calculateTotalMoney, 
   calculateRecurringIncome, 
@@ -23,12 +23,12 @@ const ReportTab = ({
 
   return (
     <div className="">
-      <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Financial Report</h2>
+      <h2 className="text-xl font-semibold mb-4">Financial Report</h2>
       
       <div className="grid gap-4">
         <ReportCard
           title="Money in Bank"
-          value={formatThaiBaht(parseFloat(moneyInBank) || 0)}
+          value={formatCurrency(parseFloat(moneyInBank) || 0, selectedCurrency)}
           subtitle="Current bank balance"
           backgroundColor="bg-gray-50"
           textColor="text-gray-600"
@@ -38,7 +38,7 @@ const ReportTab = ({
 
         <ReportCard
           title="Total Money Available"
-          value={formatThaiBaht(totalMoney)}
+          value={formatCurrency(totalMoney, selectedCurrency)}
           subtitle="Bank + all income sources"
           backgroundColor="bg-gray-50"
           textColor="text-gray-600"
@@ -48,7 +48,7 @@ const ReportTab = ({
 
         <ReportCard
           title="Monthly Recurring Income"
-          value={formatThaiBaht(recurringIncome)}
+          value={formatCurrency(recurringIncome, selectedCurrency)}
           subtitle="Regular income streams only"
           backgroundColor="bg-gray-50"
           textColor="text-gray-600"
@@ -58,7 +58,7 @@ const ReportTab = ({
 
         <ReportCard
           title="Total Monthly Expenses"
-          value={formatThaiBaht(totalExpenses)}
+          value={formatCurrency(totalExpenses, selectedCurrency)}
           subtitle="Including spend limits"
           backgroundColor="bg-gray-50"
           textColor="text-gray-600"
@@ -68,7 +68,7 @@ const ReportTab = ({
 
         <ReportCard
           title="Daily Free Money"
-          value={formatThaiBaht(dailyFreeMoney)}
+          value={formatCurrency(dailyFreeMoney, selectedCurrency)}
           subtitle="Available daily after expenses"
           backgroundColor="bg-gray-50"
           textColor="text-gray-600"

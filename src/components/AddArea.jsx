@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import VoiceInput from './VoiceInput';
 import { saveIncome, saveCost, saveGoal } from '../utils/firebase';
 import { capitalizeFirstLetter } from '../utils/formatters';
+import { getCurrencySymbol } from '../utils/currency';
 
 const AddArea = ({ 
   activeTab,
@@ -40,29 +41,34 @@ const AddArea = ({
     { value: "one-off", label: "One-off" }
   ];
 
-  const handleAddIncome = async () => {
-    if (!incomeName.trim() || !incomeAmount.trim()) return;
+  const handleAddIncome = async (data = null) => {
+    const itemData = data || {
+      name: incomeName.trim(),
+      amount: parseFloat(incomeAmount),
+      period: incomePeriod
+    };
 
-    const number = parseFloat(incomeAmount);
-    if (isNaN(number) || number <= 0) return;
+    if (!itemData.name || !itemData.amount || isNaN(itemData.amount) || itemData.amount <= 0) return;
 
     setAddingIncome(true);
     
     try {
       const newIncome = {
-        name: capitalizeFirstLetter(incomeName.trim()),
-        amount: number,
-        period: incomePeriod,
+        name: capitalizeFirstLetter(itemData.name),
+        amount: itemData.amount,
+        period: itemData.period,
         userId: user?.uid
       };
 
       const savedIncome = await saveIncome(newIncome);
       setIncomes([...incomes, savedIncome]);
       
-      // Reset form
-      setIncomeName('');
-      setIncomeAmount('');
-      setIncomePeriod('monthly');
+      // Reset form only if not from voice input
+      if (!data) {
+        setIncomeName('');
+        setIncomeAmount('');
+        setIncomePeriod('monthly');
+      }
     } catch (error) {
       console.error('Error adding income:', error);
     } finally {
@@ -70,61 +76,93 @@ const AddArea = ({
     }
   };
 
-  const handleAddCost = async () => {
-    if (!costName.trim() || !costAmount.trim()) return;
+  const handleAddCost = async (data = null) => {
+    console.log('🏭 FACTORY: handleAddCost called');
+    console.log('📦 Input data:', data);
+    console.log('📝 Current form state:', { costName, costAmount, costPeriod });
+    
+    const itemData = data || {
+      name: costName.trim(),
+      amount: parseFloat(costAmount),
+      period: costPeriod
+    };
+    
+    console.log('🔍 Final itemData:', itemData);
 
-    const number = parseFloat(costAmount);
-    if (isNaN(number) || number <= 0) return;
+    if (!itemData.name || !itemData.amount || isNaN(itemData.amount) || itemData.amount <= 0) {
+      console.log('❌ Validation failed:', { 
+        hasName: !!itemData.name, 
+        hasAmount: !!itemData.amount, 
+        isNumber: !isNaN(itemData.amount), 
+        isPositive: itemData.amount > 0 
+      });
+      return;
+    }
 
+    console.log('✅ Validation passed, starting save process');
     setAddingCost(true);
     
     try {
       const newCost = {
-        name: capitalizeFirstLetter(costName.trim()),
-        amount: number,
-        period: costPeriod,
+        name: capitalizeFirstLetter(itemData.name),
+        amount: itemData.amount,
+        period: itemData.period,
         userId: user?.uid
       };
-
-      const savedCost = await saveCost(newCost);
-      setCosts([...costs, savedCost]);
       
-      // Reset form
-      setCostName('');
-      setCostAmount('');
-      setCostPeriod('monthly');
+      console.log('💾 Saving cost to database:', newCost);
+      const savedCost = await saveCost(newCost);
+      console.log('✅ Cost saved successfully:', savedCost);
+      
+      setCosts([...costs, savedCost]);
+      console.log('📊 Updated costs state, new length:', costs.length + 1);
+      
+      // Reset form only if not from voice input
+      if (!data) {
+        console.log('🔄 Resetting form fields');
+        setCostName('');
+        setCostAmount('');
+        setCostPeriod('monthly');
+      } else {
+        console.log('🎤 Voice input - skipping form reset');
+      }
     } catch (error) {
-      console.error('Error adding cost:', error);
+      console.error('💥 Error adding cost:', error);
     } finally {
       setAddingCost(false);
+      console.log('🏁 handleAddCost completed');
     }
   };
 
-  const handleAddGoal = async () => {
-    if (!goalName.trim() || !goalPrice.trim() || !dailyContribution.trim()) return;
+  const handleAddGoal = async (data = null) => {
+    const itemData = data || {
+      name: goalName.trim(),
+      price: parseFloat(goalPrice),
+      dailyContribution: parseFloat(dailyContribution)
+    };
 
-    const price = parseFloat(goalPrice);
-    const contribution = parseFloat(dailyContribution);
-    
-    if (isNaN(price) || price <= 0 || isNaN(contribution) || contribution <= 0) return;
+    if (!itemData.name || !itemData.price || isNaN(itemData.price) || itemData.price <= 0 || 
+        !itemData.dailyContribution || isNaN(itemData.dailyContribution) || itemData.dailyContribution <= 0) return;
 
     setAddingGoal(true);
     
     try {
       const newGoal = {
-        name: capitalizeFirstLetter(goalName.trim()),
-        price: price,
-        dailyContribution: contribution,
+        name: capitalizeFirstLetter(itemData.name),
+        price: itemData.price,
+        dailyContribution: itemData.dailyContribution,
         userId: user?.uid
       };
 
       const savedGoal = await saveGoal(newGoal);
       setGoals([...goals, savedGoal]);
       
-      // Reset form
-      setGoalName('');
-      setGoalPrice('');
-      setDailyContribution('');
+      // Reset form only if not from voice input
+      if (!data) {
+        setGoalName('');
+        setGoalPrice('');
+        setDailyContribution('');
+      }
     } catch (error) {
       console.error('Error adding goal:', error);
     } finally {
@@ -145,6 +183,8 @@ const AddArea = ({
   };
 
   const getTabConfig = () => {
+    const currencySymbol = getCurrencySymbol(selectedCurrency);
+    
     switch (activeTab) {
       case 'income':
         return {
@@ -159,7 +199,7 @@ const AddArea = ({
             },
             { 
               type: 'number', 
-              placeholder: 'Amount', 
+              placeholder: `Amount (${currencySymbol})`, 
               value: incomeAmount, 
               onChange: (e) => setIncomeAmount(e.target.value),
               key: 'amount'
@@ -188,7 +228,7 @@ const AddArea = ({
             },
             { 
               type: 'number', 
-              placeholder: 'Amount', 
+              placeholder: `Amount (${currencySymbol})`, 
               value: costAmount, 
               onChange: (e) => setCostAmount(e.target.value),
               key: 'amount'
@@ -217,14 +257,14 @@ const AddArea = ({
             },
             { 
               type: 'number', 
-              placeholder: 'Goal price', 
+              placeholder: `Goal price (${currencySymbol})`, 
               value: goalPrice, 
               onChange: (e) => setGoalPrice(e.target.value),
               key: 'price'
             },
             { 
               type: 'number', 
-              placeholder: 'Daily contribution', 
+              placeholder: `Daily contribution (${currencySymbol})`, 
               value: dailyContribution, 
               onChange: (e) => setDailyContribution(e.target.value),
               key: 'dailyContribution'
@@ -295,30 +335,115 @@ const AddArea = ({
     }
   };
 
+  const handleDataExtracted = async (extractedData) => {
+    console.log('🎤 VOICE INPUT: Starting data extraction process');
+    console.log('📥 Raw extracted data:', extractedData);
+    
+    // Validate the extracted data
+    if (!extractedData || typeof extractedData !== 'object') {
+      console.log('❌ Invalid extracted data format');
+      return;
+    }
+
+    try {
+      if (activeTab === 'income') {
+        console.log('💰 Processing as INCOME');
+        const { name, amount, period } = extractedData;
+        console.log('📋 Extracted fields:', { name, amount, period });
+        
+        if (name && amount && period) {
+          // Create a new object with proper structure
+          const incomeData = {
+            name: name.trim(),
+            amount: parseFloat(amount),
+            period: period
+          };
+          console.log('🔧 Transformed income data:', incomeData);
+          await handleAddIncome(incomeData);
+        } else {
+          console.log('❌ Missing required income fields');
+        }
+      } else if (activeTab === 'expenses') {
+        console.log('💸 Processing as EXPENSE');
+        const { name, amount, period } = extractedData;
+        console.log('📋 Extracted fields:', { name, amount, period });
+        
+        if (name && amount && period) {
+          // Create a new object with proper structure
+          const costData = {
+            name: name.trim(),
+            amount: parseFloat(amount),
+            period: period
+          };
+          console.log('🔧 Transformed cost data:', costData);
+          await handleAddCost(costData);
+        } else {
+          console.log('❌ Missing required expense fields');
+        }
+      } else if (activeTab === 'goals') {
+        console.log('🎯 Processing as GOAL');
+        const { name, price, dailyContribution } = extractedData;
+        console.log('📋 Extracted fields:', { name, price, dailyContribution });
+        
+        if (name && price && dailyContribution) {
+          // Create a new object with proper structure
+          const goalData = {
+            name: name.trim(),
+            price: parseFloat(price),
+            dailyContribution: parseFloat(dailyContribution)
+          };
+          console.log('🔧 Transformed goal data:', goalData);
+          await handleAddGoal(goalData);
+        } else {
+          console.log('❌ Missing required goal fields');
+        }
+      }
+    } catch (error) {
+      console.error('💥 Error in handleDataExtracted:', error);
+    }
+  };
+
   const config = getTabConfig();
   if (!config) return null;
 
   return (
-    <div className="p-2 sm:p-4 border rounded mb-4 sm:mb-6">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full text-left"
-      >
-        <h2 className="text-lg sm:text-xl font-semibold">{config.title}</h2>
-        <svg 
-          className={`w-5 h-5 transition-transform duration-200 ${
-            isOpen ? 'rotate-180' : ''
-          }`} 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+    <div className="p-3 border rounded mb-2">
+      <div className="flex items-center justify-between w-full">
+                  <h2 className="text-xl font-semibold">{config.title}</h2>
+        <div className="flex items-center gap-2">
+          {!isOpen && (
+            // TODO: Add paid user check here - VoiceInput should only render for paid users
+            <VoiceInput 
+              onTranscript={handleVoiceTranscript}
+              isRecording={isRecording}
+              setIsRecording={setIsRecording}
+              activeTab={activeTab}
+              onDataExtracted={handleDataExtracted}
+              selectedCurrency={selectedCurrency}
+            />
+          )}
+          <button 
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex items-center justify-center"
+          >
+            <svg 
+              className={`w-5 h-5 transition-transform duration-200 ${
+                isOpen ? 'rotate-180' : ''
+              }`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+
       
       {isOpen && (
-        <div className="mt-3 sm:mt-4">
+        <div className="mt-4">
           <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-3">
             {config.fields.map((field, index) => (
               <div key={index} className="relative">
@@ -326,7 +451,7 @@ const AddArea = ({
                   <select 
                     value={field.value} 
                     onChange={field.onChange}
-                    className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base w-full"
+                    className="border border-gray-300 rounded px-3 py-2 text-base w-full"
                   >
                     {field.options.map(option => (
                       <option key={option.value} value={option.value}>
@@ -341,7 +466,7 @@ const AddArea = ({
                     value={field.value}
                     onChange={field.onChange}
                     onKeyPress={handleKeyPress}
-                    className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base w-full"
+                    className="border border-gray-300 rounded px-3 py-2 text-base w-full"
                   />
                 )}
               </div>
@@ -350,7 +475,7 @@ const AddArea = ({
               <button 
                 onClick={config.onSubmit} 
                 disabled={config.isSubmitting}
-                className={`px-3 py-2 text-white rounded text-sm sm:text-base flex-1 ${
+                className={`px-3 py-2 text-white rounded text-base flex-1 ${
                   config.isSubmitting 
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-500 hover:bg-blue-600'
@@ -362,6 +487,9 @@ const AddArea = ({
                 onTranscript={handleVoiceTranscript}
                 isRecording={isRecording}
                 setIsRecording={setIsRecording}
+                activeTab={activeTab}
+                onDataExtracted={handleDataExtracted}
+                selectedCurrency={selectedCurrency}
               />
             </div>
           </div>

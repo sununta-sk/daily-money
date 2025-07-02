@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
-const VoiceInput = ({ onTranscript, isRecording, setIsRecording }) => {
+const VoiceInput = ({ onTranscript, isRecording, setIsRecording, activeTab, onDataExtracted, selectedCurrency }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -16,7 +17,7 @@ const VoiceInput = ({ onTranscript, isRecording, setIsRecording }) => {
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         await processAudio(audioBlob);
       };
 
@@ -36,25 +37,76 @@ const VoiceInput = ({ onTranscript, isRecording, setIsRecording }) => {
     }
   };
 
+  const getTabSpecificPrompt = () => {
+    const currencyContext = `The user is using ${selectedCurrency} currency. Convert amounts to THB (Thai Baht) if mentioned in other currencies like USD, NZD, or AED.`;
+    
+    switch (activeTab) {
+      case 'income':
+        return `${currencyContext} Extract income information from this voice recording. Return ONLY a JSON object with these exact fields: {"name": "income name", "amount": number, "period": "daily|weekly|monthly|yearly|one-off"}. Example: "salary 50000 monthly" should return {"name": "salary", "amount": 50000, "period": "monthly"}. If any field is unclear, use null for that field.`;
+      case 'expenses':
+        return `${currencyContext} Extract expense information from this voice recording. Return ONLY a JSON object with these exact fields: {"name": "expense name", "amount": number, "period": "daily|weekly|monthly|yearly|one-off"}. Example: "rent 15000 monthly" should return {"name": "rent", "amount": 15000, "period": "monthly"}. If any field is unclear, use null for that field.`;
+      case 'goals':
+        return `${currencyContext} Extract goal information from this voice recording. Return ONLY a JSON object with these exact fields: {"name": "goal name", "price": number, "dailyContribution": number}. Example: "new phone 25000 100 daily" should return {"name": "new phone", "price": 25000, "dailyContribution": 100}. If any field is unclear, use null for that field.`;
+      default:
+        return `Extract information from this voice recording and return it as a JSON object.`;
+    }
+  };
+
   const processAudio = async (audioBlob) => {
+    console.log('🎤 VOICE INPUT: Starting audio processing');
     setIsProcessing(true);
     try {
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.wav');
+      // Convert audio blob to base64
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
+      // Call the smart function
+      const functions = getFunctions();
+      const processSmartRequest = httpsCallable(functions, 'processSmartRequest');
+      
+      const result = await processSmartRequest({
+        audioFile: base64Audio,
+        prompt: getTabSpecificPrompt(),
+        returnTranscript: true
       });
 
-      if (!response.ok) {
-        throw new Error('Transcription failed');
+      console.log('Smart function result:', result.data);
+
+      // Extract the response and try to parse as JSON
+      const responseText = result.data.response;
+      let extractedData = null;
+      let transcript = result.data.transcript || '';
+
+      try {
+        // Try to extract JSON from the response - handle multiline JSON
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          extractedData = JSON.parse(jsonMatch[0]);
+          console.log('✅ Extracted data:', extractedData);
+        } else {
+          console.log('❌ No JSON match found in response:', responseText);
+        }
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON from response:', parseError);
+        console.log('Raw response text:', responseText);
       }
 
-      const data = await response.json();
-      if (data.transcript) {
-        onTranscript(data.transcript);
+      // Call the callback with both transcript and extracted data
+      if (onTranscript) {
+        onTranscript(transcript);
       }
+
+      // If we have valid extracted data, call the data extraction callback
+      if (extractedData && onDataExtracted) {
+        console.log('🎤 VOICE INPUT: Calling onDataExtracted with:', extractedData);
+        onDataExtracted(extractedData);
+      } else {
+        console.log('❌ VOICE INPUT: No extracted data or callback missing:', { 
+          hasExtractedData: !!extractedData, 
+          hasCallback: !!onDataExtracted 
+        });
+      }
+
     } catch (error) {
       console.error('Error processing audio:', error);
       alert('Failed to process voice input. Please try again.');

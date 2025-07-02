@@ -10,12 +10,12 @@ const AddItemForm = ({
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="p-2 sm:p-4 border rounded mb-4 sm:mb-6">
+    <div className="p-4 border rounded mb-6">
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-between w-full text-left"
       >
-        <h2 className="text-lg sm:text-xl font-semibold">{title}</h2>
+        <h2 className="text-xl font-semibold">{title}</h2>
         <svg 
           className={`w-5 h-5 transition-transform duration-200 ${
             isOpen ? 'rotate-180' : ''
@@ -29,14 +29,14 @@ const AddItemForm = ({
       </button>
       
       {isOpen && (
-        <div className="mt-3 sm:mt-4 grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {fields.map((field, index) => (
             <div key={index}>
               {field.type === 'select' ? (
                 <select 
                   value={field.value} 
                   onChange={field.onChange}
-                  className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base w-full"
+                  className="border border-gray-300 rounded px-3 py-2 text-base w-full"
                 >
                   {field.options.map(option => (
                     <option key={option.value} value={option.value}>
@@ -52,7 +52,7 @@ const AddItemForm = ({
                   value={field.value}
                   onChange={field.onChange}
                   onKeyPress={onKeyPress}
-                  className="border border-gray-300 rounded px-3 py-2 text-sm sm:text-base w-full"
+                  className="border border-gray-300 rounded px-3 py-2 text-base w-full"
                 />
               )}
             </div>
@@ -60,7 +60,7 @@ const AddItemForm = ({
           <button 
             onClick={onSubmit} 
             disabled={isSubmitting}
-            className={`px-3 py-2 text-white rounded text-sm sm:text-base ${
+            className={`px-3 py-2 text-white rounded text-base ${
               isSubmitting 
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : 'bg-blue-500 hover:bg-blue-600'
