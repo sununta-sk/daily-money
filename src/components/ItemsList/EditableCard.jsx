@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react'
-import { formatDate } from '../utils/formatters'
+import { formatDate } from '../../utils/formatters'
 
 const EditableCard = ({ 
   isEditing, 
@@ -32,12 +32,14 @@ const EditableCard = ({
   return (
     <div 
       ref={cardRef}
-      className={`p-3 border rounded cursor-pointer transition-all duration-200 flex items-center justify-between ${
+      className={`p-3 border rounded transition-all duration-200 flex items-center justify-between ${
         isEditing 
           ? 'border-gray-300' 
-          : 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm border-gray-200'
+          : onEdit 
+            ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm border-gray-200 cursor-pointer'
+            : 'bg-gray-50 border-gray-200'
       }`}
-      onClick={!isEditing ? onEdit : undefined}
+      onClick={!isEditing && onEdit ? onEdit : undefined}
     >
       <div className="flex-1">
         {children}

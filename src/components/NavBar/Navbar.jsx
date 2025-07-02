@@ -1,6 +1,6 @@
 import React from 'react';
-import { CURRENCIES } from '../utils/currency';
-import WhaleLogo from './WhaleLogo';
+import { CURRENCIES } from '../../utils/currency';
+import WhaleLogo from '../WhaleLogo';
 
 const Navbar = ({ 
   activeTab, 

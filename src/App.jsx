@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import AddArea from './components/AddArea';
-import ItemsList from './components/ItemsList';
-import ReportTab from './components/ReportTab';
+import Navbar from './components/NavBar/Navbar';
+import AddArea from './components/AddArea/AddArea';
+import ItemsList from './components/ItemsList/ItemsList';
 import WhaleLogo from './components/WhaleLogo';
 import { onAuthChange, getUserData, signInWithGoogle } from './utils/firebase';
 import { fetchExchangeRates } from './utils/currency';
@@ -110,47 +109,36 @@ function App() {
       
       <div className="flex flex-col flex-1">
         {activeTab !== 'report' && (
-          <>
-            <AddArea 
-              activeTab={activeTab}
-              incomes={incomes}
-              setIncomes={setIncomes}
-              costs={costs}
-              setCosts={setCosts}
-              goals={goals}
-              setGoals={setGoals}
-              selectedCurrency={selectedCurrency}
-              user={user}
-                    />
-
-                    <ItemsList
-              activeTab={activeTab}
-              incomes={incomes}
-              costs={costs}
-              goals={goals}
-              setIncomes={setIncomes}
-              setCosts={setCosts}
-              setGoals={setGoals}
-              moneyInBank={moneyInBank}
-              setMoneyInBank={setMoneyInBank}
-              spendLimit={spendLimit}
-              setSpendLimit={setSpendLimit}
-              sortOrder={sortOrder}
-              setSortOrder={setSortOrder}
-              selectedCurrency={selectedCurrency}
-              user={user}
-                    />
-                  </>
-                )}
-
-        {activeTab === 'report' && (
-                  <ReportTab 
-                    incomes={incomes}
-                    costs={costs}
-                    moneyInBank={moneyInBank}
+          <AddArea 
+            activeTab={activeTab}
+            incomes={incomes}
+            setIncomes={setIncomes}
+            costs={costs}
+            setCosts={setCosts}
+            goals={goals}
+            setGoals={setGoals}
             selectedCurrency={selectedCurrency}
-                  />
-                )}
+            user={user}
+          />
+        )}
+
+        <ItemsList
+          activeTab={activeTab}
+          incomes={incomes}
+          costs={costs}
+          goals={goals}
+          setIncomes={setIncomes}
+          setCosts={setCosts}
+          setGoals={setGoals}
+          moneyInBank={moneyInBank}
+          setMoneyInBank={setMoneyInBank}
+          spendLimit={spendLimit}
+          setSpendLimit={setSpendLimit}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+          selectedCurrency={selectedCurrency}
+          user={user}
+        />
               </div>
     </div>
   );

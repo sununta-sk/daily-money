@@ -1,9 +1,16 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { useSpring, animated } from '@react-spring/web';
 import EditableCard from './EditableCard';
-import { updateIncome, updateCost, updateGoal, deleteIncome, deleteCost, deleteGoal } from '../utils/firebase';
-import { capitalizeFirstLetter } from '../utils/formatters';
-import { formatCurrency } from '../utils/currency';
+import { updateIncome, updateCost, updateGoal, deleteIncome, deleteCost, deleteGoal } from '../../utils/firebase';
+import { capitalizeFirstLetter } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/currency';
+import { 
+  calculateTotalMoney, 
+  calculateRecurringIncome, 
+  calculateMonthlyExpenses, 
+  calculateDailyFreeMoney, 
+  calculateHowLongYouCanLive 
+} from '../../utils/calculations';
 
 const ItemsList = ({ 
   activeTab,
@@ -102,6 +109,24 @@ const ItemsList = ({
       case 'goals':
         items = goals || [];
         break;
+      case 'report': {
+        // Generate report data as items
+        const totalMoney = calculateTotalMoney(incomes, costs, moneyInBank);
+        const recurringIncome = calculateRecurringIncome(incomes);
+        const totalExpenses = calculateMonthlyExpenses(costs);
+        const dailyFreeMoney = calculateDailyFreeMoney(incomes, costs);
+        const survivalTime = calculateHowLongYouCanLive(incomes, costs, moneyInBank);
+        
+        items = [
+          { id: 'money-in-bank', name: 'Money in Bank', amount: parseFloat(moneyInBank) || 0, subtitle: 'Current bank balance' },
+          { id: 'total-money', name: 'Total Money Available', amount: totalMoney, subtitle: 'Bank + all income sources' },
+          { id: 'recurring-income', name: 'Monthly Recurring Income', amount: recurringIncome, subtitle: 'Regular income streams only' },
+          { id: 'total-expenses', name: 'Total Monthly Expenses', amount: totalExpenses, subtitle: 'Including spend limits' },
+          { id: 'daily-free-money', name: 'Daily Free Money', amount: dailyFreeMoney, subtitle: 'Available daily after expenses' },
+          { id: 'survival-time', name: 'How Long You Can Live', amount: survivalTime === Infinity ? 'Forever' : `${Math.round(survivalTime)} days`, subtitle: 'Based on current income and expenses', isText: true }
+        ];
+        return items; // Return early, no sorting needed for report
+      }
       default:
         items = [];
     }
@@ -147,6 +172,8 @@ const ItemsList = ({
         return 'Your Expenses';
       case 'goals':
         return 'Your Goals';
+      case 'report':
+        return 'Financial Report';
       default:
         return 'Items';
     }
@@ -303,32 +330,58 @@ const ItemsList = ({
 
   const renderDisplayContent = (item) => {
     if (activeTab === 'goals') {
-      const days = Math.ceil(item.price / item.dailyContribution);
+      // Add null safety for goals
+      const price = item.price || 0;
+      const dailyContribution = item.dailyContribution || 0;
+      const days = dailyContribution > 0 ? Math.ceil(price / dailyContribution) : Infinity;
       const targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + days);
+      
+      if (days !== Infinity) {
+        targetDate.setDate(targetDate.getDate() + days);
+      }
+      
+
       
       return (
         <div className="flex flex-col">
           <span className="font-medium text-base mb-2 text-gray-700">
-            {capitalizeFirstLetter(item.name)}
+            {capitalizeFirstLetter(item.name || 'Unnamed Goal')}
           </span>
           <div className="flex justify-between items-center">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <span className="text-gray-600 text-sm">
-                Price: {formatCurrency(item.price, selectedCurrency)}
+                Price: {formatCurrency(price, selectedCurrency)}
               </span>
               <span className="text-gray-600 text-sm">
-                Daily: {formatCurrency(item.dailyContribution, selectedCurrency)}
+                Daily: {formatCurrency(dailyContribution, selectedCurrency)}
               </span>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <span className="text-green-600 text-sm">
-                Target: {targetDate.toLocaleDateString()}
+                Target: {days === Infinity ? 'Never' : targetDate.toLocaleDateString()}
               </span>
               <span className="text-gray-500 text-sm">
-                ({days} days)
+                ({days === Infinity ? '∞' : days} days)
               </span>
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeTab === 'report') {
+      return (
+        <div className="flex flex-col">
+          <span className="font-medium text-base mb-2 text-gray-700">
+            {item.name}
+          </span>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 text-sm">
+              {item.subtitle}
+            </span>
+            <span className="font-medium text-base">
+              {item.isText ? item.amount : formatCurrency(item.amount, selectedCurrency)}
+            </span>
           </div>
         </div>
       );
@@ -348,17 +401,9 @@ const ItemsList = ({
 
   const items = getItems();
   
-  // Debug: Log first few items to see timestamp structure
-  if (items.length > 0) {
-    console.log('🔍 Debug: First item structure:', {
-      id: items[0].id,
-      name: items[0].name,
-      timestamp: items[0].timestamp,
-      createdAt: items[0].createdAt,
-      date: items[0].date,
-      created: items[0].created,
-      allFields: Object.keys(items[0])
-    });
+  // Debug: Log current tab and items for debugging
+  if (activeTab === 'goals' && goals.length === 0) {
+    console.log(`🔍 No goals found. Add a goal using the form above.`);
   }
 
   return (
@@ -397,24 +442,28 @@ const ItemsList = ({
         </div>
         
         {/* Sort Line */}
-        <div className="flex justify-end items-center mt-2">
-          <div className="flex items-center gap-1">
-            <label className="text-xs font-medium text-gray-600">Sort:</label>
-            <select 
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              className="border border-gray-300 rounded px-1 py-1 text-xs"
-            >
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
-            </select>
+        {activeTab !== 'report' && (
+          <div className="flex justify-end items-center mt-2">
+            <div className="flex items-center gap-1">
+              <label className="text-xs font-medium text-gray-600">Sort:</label>
+              <select 
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="border border-gray-300 rounded px-1 py-1 text-xs"
+              >
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+              </select>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Visual Indicator - Bouncing Red Dot */}
-      {((activeTab === 'income' || activeTab === 'expenses') && !hasMoneyInBank) || 
-       (activeTab === 'goals' && !hasSpendLimit) ? (
+      {activeTab !== 'report' && (
+        ((activeTab === 'income' || activeTab === 'expenses') && !hasMoneyInBank) || 
+        (activeTab === 'goals' && !hasSpendLimit)
+      ) ? (
         <animated.div 
           className="fixed w-1.5 h-1.5 bg-red-500 rounded-full z-10"
           style={{
@@ -426,24 +475,33 @@ const ItemsList = ({
       ) : null}
       
       <div className="grid gap-2">
-        {items.map(item => (
-          <EditableCard
-            key={item.id}
-            isEditing={editingItem === item.id}
-            onEdit={() => handleEdit(item)}
-            onSave={handleSave}
-            onCancel={handleCancel}
-            onDelete={() => handleDelete(item.id)}
-            timestamp={item.timestamp || item.createdAt || item.date || item.created}
-            period={activeTab !== 'goals' ? item.period : undefined}
-          >
-            {editingItem === item.id ? (
-              renderEditForm()
-            ) : (
-              renderDisplayContent(item)
-            )}
-          </EditableCard>
-        ))}
+        {items.length === 0 ? (
+          <div className="text-center text-gray-500 py-8">
+            {activeTab === 'goals' ? 'No goals yet. Add your first goal above!' : 
+             activeTab === 'income' ? 'No income sources yet. Add your first income above!' :
+             activeTab === 'expenses' ? 'No expenses yet. Add your first expense above!' :
+             'No items to display'}
+          </div>
+        ) : (
+          items.map(item => (
+            <EditableCard
+              key={item.id}
+              isEditing={activeTab !== 'report' && editingItem === item.id}
+              onEdit={activeTab !== 'report' ? () => handleEdit(item) : undefined}
+              onSave={handleSave}
+              onCancel={handleCancel}
+              onDelete={activeTab !== 'report' ? () => handleDelete(item.id) : undefined}
+              timestamp={item.timestamp || item.createdAt || item.date || item.created}
+              period={activeTab === 'income' || activeTab === 'expenses' ? item.period : undefined}
+            >
+              {activeTab !== 'report' && editingItem === item.id ? (
+                renderEditForm()
+              ) : (
+                renderDisplayContent(item)
+              )}
+            </EditableCard>
+          ))
+        )}
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import VoiceInput from './VoiceInput';
-import { saveIncome, saveCost, saveGoal } from '../utils/firebase';
-import { capitalizeFirstLetter } from '../utils/formatters';
-import { getCurrencySymbol } from '../utils/currency';
+import { saveIncome, saveCost, saveGoal } from '../../utils/firebase';
+import { capitalizeFirstLetter } from '../../utils/formatters';
+import { getCurrencySymbol } from '../../utils/currency';
 
 const AddArea = ({ 
   activeTab,
