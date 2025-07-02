@@ -27,7 +27,7 @@ function App() {
       
       if (user) {
         loadUserData(user.uid);
-        fetchExchangeRates();
+          fetchExchangeRates();
       }
     });
 
@@ -59,7 +59,7 @@ function App() {
         <div className="text-center">
           <div className="flex items-center justify-center mb-4">
             <WhaleLogo className="w-16 h-16" />
-          </div>
+            </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily Money</h1>
           <p className="mb-4 text-gray-600">Please sign in to use the budget dashboard</p>
               <button
@@ -109,36 +109,36 @@ function App() {
       
       <div className="flex flex-col flex-1">
         {activeTab !== 'report' && (
-          <AddArea 
-            activeTab={activeTab}
-            incomes={incomes}
-            setIncomes={setIncomes}
-            costs={costs}
-            setCosts={setCosts}
-            goals={goals}
-            setGoals={setGoals}
-            selectedCurrency={selectedCurrency}
-            user={user}
-          />
+            <AddArea 
+              activeTab={activeTab}
+              incomes={incomes}
+              setIncomes={setIncomes}
+              costs={costs}
+              setCosts={setCosts}
+              goals={goals}
+              setGoals={setGoals}
+              selectedCurrency={selectedCurrency}
+              user={user}
+                    />
         )}
 
-        <ItemsList
-          activeTab={activeTab}
-          incomes={incomes}
-          costs={costs}
-          goals={goals}
-          setIncomes={setIncomes}
-          setCosts={setCosts}
-          setGoals={setGoals}
-          moneyInBank={moneyInBank}
-          setMoneyInBank={setMoneyInBank}
-          spendLimit={spendLimit}
-          setSpendLimit={setSpendLimit}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          selectedCurrency={selectedCurrency}
-          user={user}
-        />
+                    <ItemsList
+              activeTab={activeTab}
+              incomes={incomes}
+              costs={costs}
+              goals={goals}
+              setIncomes={setIncomes}
+              setCosts={setCosts}
+              setGoals={setGoals}
+              moneyInBank={moneyInBank}
+              setMoneyInBank={setMoneyInBank}
+              spendLimit={spendLimit}
+              setSpendLimit={setSpendLimit}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+              selectedCurrency={selectedCurrency}
+              user={user}
+                    />
               </div>
     </div>
   );

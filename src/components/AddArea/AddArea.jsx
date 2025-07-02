@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import VoiceInput from './VoiceInput';
 import { saveIncome, saveCost, saveGoal } from '../../utils/firebase';
 import { capitalizeFirstLetter } from '../../utils/formatters';
@@ -17,6 +17,7 @@ const AddArea = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const areaRef = useRef(null);
   
   // Local state for form inputs
   const [incomeName, setIncomeName] = useState('');
@@ -40,6 +41,18 @@ const AddArea = ({
     { value: "yearly", label: "Yearly" },
     { value: "one-off", label: "One-off" }
   ];
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (areaRef.current && !areaRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleAddIncome = async (data = null) => {
     const itemData = data || {
@@ -407,43 +420,40 @@ const AddArea = ({
   if (!config) return null;
 
   return (
-    <div className="p-3 border rounded mb-2">
+    <div
+      ref={areaRef}
+      className="p-3 border rounded mb-2 cursor-pointer"
+      {...(!isOpen ? { onClick: () => setIsOpen(true) } : {})}
+    >
       <div className="flex items-center justify-between w-full">
-                  <h2 className="text-xl font-semibold">{config.title}</h2>
+        <h2 className="text-xl font-semibold select-none flex items-center gap-2">
+          {config.title}
+          <svg 
+            className={`w-5 h-5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </h2>
         <div className="flex items-center gap-2">
           {!isOpen && (
-            // TODO: Add paid user check here - VoiceInput should only render for paid users
-            <VoiceInput 
-              onTranscript={handleVoiceTranscript}
-              isRecording={isRecording}
-              setIsRecording={setIsRecording}
-              activeTab={activeTab}
-              onDataExtracted={handleDataExtracted}
-              selectedCurrency={selectedCurrency}
-            />
+            <span onClick={e => e.stopPropagation()}>
+              <VoiceInput 
+                onTranscript={handleVoiceTranscript}
+                isRecording={isRecording}
+                setIsRecording={setIsRecording}
+                activeTab={activeTab}
+                onDataExtracted={handleDataExtracted}
+                selectedCurrency={selectedCurrency}
+              />
+            </span>
           )}
-          <button 
-            onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center justify-center"
-          >
-            <svg 
-              className={`w-5 h-5 transition-transform duration-200 ${
-                isOpen ? 'rotate-180' : ''
-              }`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
         </div>
       </div>
-      
-
-      
       {isOpen && (
-        <div className="mt-4">
+        <div className="mt-4 cursor-default" onClick={e => e.stopPropagation()}>
           <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-3">
             {config.fields.map((field, index) => (
               <div key={index} className="relative">
@@ -473,7 +483,7 @@ const AddArea = ({
             ))}
             <div className="flex gap-2">
               <button 
-                onClick={config.onSubmit} 
+                onClick={e => { e.stopPropagation(); config.onSubmit(); }} 
                 disabled={config.isSubmitting}
                 className={`px-3 py-2 text-white rounded text-base flex-1 ${
                   config.isSubmitting 
