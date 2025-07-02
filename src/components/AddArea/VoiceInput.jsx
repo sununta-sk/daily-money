@@ -9,6 +9,7 @@ const VoiceInput = ({ onTranscript, isRecording, setIsRecording, activeTab, onDa
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
       mediaRecorderRef.current = new MediaRecorder(stream);
       audioChunksRef.current = [];
 
@@ -23,9 +24,8 @@ const VoiceInput = ({ onTranscript, isRecording, setIsRecording, activeTab, onDa
 
       mediaRecorderRef.current.start();
       setIsRecording(true);
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      alert('Unable to access microphone. Please check permissions.');
+    } catch {
+      // Handle error silently
     }
   };
 
@@ -53,7 +53,6 @@ const VoiceInput = ({ onTranscript, isRecording, setIsRecording, activeTab, onDa
   };
 
   const processAudio = async (audioBlob) => {
-    console.log('🎤 VOICE INPUT: Starting audio processing');
     setIsProcessing(true);
     try {
       // Convert audio blob to base64
@@ -70,8 +69,6 @@ const VoiceInput = ({ onTranscript, isRecording, setIsRecording, activeTab, onDa
         returnTranscript: true
       });
 
-      console.log('Smart function result:', result.data);
-
       // Extract the response and try to parse as JSON
       const responseText = result.data.response;
       let extractedData = null;
@@ -82,13 +79,9 @@ const VoiceInput = ({ onTranscript, isRecording, setIsRecording, activeTab, onDa
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           extractedData = JSON.parse(jsonMatch[0]);
-          console.log('✅ Extracted data:', extractedData);
-        } else {
-          console.log('❌ No JSON match found in response:', responseText);
         }
-      } catch (parseError) {
-        console.error('❌ Failed to parse JSON from response:', parseError);
-        console.log('Raw response text:', responseText);
+      } catch {
+        // Handle JSON parse error silently
       }
 
       // Call the callback with both transcript and extracted data
@@ -98,18 +91,11 @@ const VoiceInput = ({ onTranscript, isRecording, setIsRecording, activeTab, onDa
 
       // If we have valid extracted data, call the data extraction callback
       if (extractedData && onDataExtracted) {
-        console.log('🎤 VOICE INPUT: Calling onDataExtracted with:', extractedData);
         onDataExtracted(extractedData);
-      } else {
-        console.log('❌ VOICE INPUT: No extracted data or callback missing:', { 
-          hasExtractedData: !!extractedData, 
-          hasCallback: !!onDataExtracted 
-        });
       }
 
-    } catch (error) {
-      console.error('Error processing audio:', error);
-      alert('Failed to process voice input. Please try again.');
+    } catch {
+      // Handle error silently
     } finally {
       setIsProcessing(false);
     }

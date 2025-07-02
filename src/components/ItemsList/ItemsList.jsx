@@ -1,25 +1,12 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { useSpring, animated } from '@react-spring/web';
 import EditableCard from './EditableCard';
-import { updateIncome, updateCost, updateGoal, deleteIncome, deleteCost, deleteGoal } from '../../utils/firebase';
 import { capitalizeFirstLetter } from '../../utils/formatters';
 import { formatCurrency } from '../../utils/currency';
-import { 
-  calculateTotalMoney, 
-  calculateRecurringIncome, 
-  calculateMonthlyExpenses, 
-  calculateDailyFreeMoney, 
-  calculateHowLongYouCanLive 
-} from '../../utils/calculations';
 
 const ItemsList = ({ 
+  displayData,
   activeTab,
-  incomes,
-  costs,
-  goals,
-  setIncomes,
-  setCosts,
-  setGoals,
   moneyInBank,
   setMoneyInBank,
   spendLimit,
@@ -27,7 +14,9 @@ const ItemsList = ({
   sortOrder,
   setSortOrder,
   selectedCurrency,
-  user
+  onUpdateItem,
+  onDeleteItem,
+  isAddAreaOpen
 }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [editName, setEditName] = useState('');
@@ -43,21 +32,15 @@ const ItemsList = ({
   const moneyInputRef = useRef(null);
   const spendInputRef = useRef(null);
 
-  // React Spring animation for bouncing dot - realistic physics-based bounce
+  // React Spring animation for bouncing dot
   const bounceAnimation = useSpring({
     to: async (next) => {
       while (true) {
-        // Start from rest position (0)
         await next({ y: 0, config: { tension: 200, friction: 25, mass: 0.8 } });
-        // Small bounce up
         await next({ y: -2, config: { tension: 300, friction: 12, mass: 0.8 } });
-        // Return with slight overshoot
         await next({ y: 0.5, config: { tension: 250, friction: 20, mass: 0.8 } });
-        // Settle back to rest
         await next({ y: 0, config: { tension: 180, friction: 22, mass: 0.8 } });
-        // Tiny secondary bounce
         await next({ y: -1, config: { tension: 220, friction: 18, mass: 0.8 } });
-        // Final settle
         await next({ y: 0, config: { tension: 160, friction: 25, mass: 0.8 } });
       }
     },
@@ -80,8 +63,8 @@ const ItemsList = ({
         const paddingLeft = parseInt(inputStyle.paddingLeft);
         
         setDotPosition({
-          x: rect.left + paddingLeft + 16, // Natural text position + spacebar-like gap
-          y: rect.top + rect.height / 2 // center vertically
+          x: rect.left + paddingLeft + 16,
+          y: rect.top + rect.height / 2
         });
       }
     };
@@ -96,89 +79,6 @@ const ItemsList = ({
     };
   }, [activeTab, moneyInBank, spendLimit]);
 
-  const getItems = () => {
-    let items = [];
-    
-    switch (activeTab) {
-      case 'income':
-        items = incomes || [];
-        break;
-      case 'expenses':
-        items = costs || [];
-        break;
-      case 'goals':
-        items = goals || [];
-        break;
-      case 'report': {
-        // Generate report data as items
-        const totalMoney = calculateTotalMoney(incomes, costs, moneyInBank);
-        const recurringIncome = calculateRecurringIncome(incomes);
-        const totalExpenses = calculateMonthlyExpenses(costs);
-        const dailyFreeMoney = calculateDailyFreeMoney(incomes, costs);
-        const survivalTime = calculateHowLongYouCanLive(incomes, costs, moneyInBank);
-        
-        items = [
-          { id: 'money-in-bank', name: 'Money in Bank', amount: parseFloat(moneyInBank) || 0, subtitle: 'Current bank balance' },
-          { id: 'total-money', name: 'Total Money Available', amount: totalMoney, subtitle: 'Bank + all income sources' },
-          { id: 'recurring-income', name: 'Monthly Recurring Income', amount: recurringIncome, subtitle: 'Regular income streams only' },
-          { id: 'total-expenses', name: 'Total Monthly Expenses', amount: totalExpenses, subtitle: 'Including spend limits' },
-          { id: 'daily-free-money', name: 'Daily Free Money', amount: dailyFreeMoney, subtitle: 'Available daily after expenses' },
-          { id: 'survival-time', name: 'How Long You Can Live', amount: survivalTime === Infinity ? 'Forever' : `${Math.round(survivalTime)} days`, subtitle: 'Based on current income and expenses', isText: true }
-        ];
-        return items; // Return early, no sorting needed for report
-      }
-      default:
-        items = [];
-    }
-    
-    // Sort items by timestamp
-    return items.sort((a, b) => {
-      // Try multiple possible timestamp fields
-      const getTimestamp = (item) => {
-        // Try different possible timestamp field names
-        const timestamp = item.timestamp || item.createdAt || item.date || item.created;
-        
-        if (!timestamp) {
-          // If no timestamp found, use current date as fallback
-          return new Date();
-        }
-        
-        // Handle different timestamp formats
-        if (timestamp.toDate) {
-          return timestamp.toDate(); // Firestore timestamp
-        } else if (timestamp.seconds) {
-          return new Date(timestamp.seconds * 1000); // Firestore timestamp object
-        } else {
-          return new Date(timestamp); // Regular date string/number
-        }
-      };
-      
-      const dateA = getTimestamp(a);
-      const dateB = getTimestamp(b);
-      
-      if (sortOrder === 'newest') {
-        return dateB - dateA; // Newest first
-      } else {
-        return dateA - dateB; // Oldest first
-      }
-    });
-  };
-
-  const getTitle = () => {
-    switch (activeTab) {
-      case 'income':
-        return 'Your Income';
-      case 'expenses':
-        return 'Your Expenses';
-      case 'goals':
-        return 'Your Goals';
-      case 'report':
-        return 'Financial Report';
-      default:
-        return 'Items';
-    }
-  };
-
   const handleEdit = (item) => {
     setEditingItem(item.id);
     setEditName(item.name || '');
@@ -189,50 +89,24 @@ const ItemsList = ({
   };
 
   const handleSave = async () => {
-    if (!editingItem) return;
+    if (!editingItem || !onUpdateItem) return;
 
-    try {
-      if (activeTab === 'income') {
-        const updatedIncome = {
-          name: capitalizeFirstLetter(editName.trim()),
-          amount: parseFloat(editAmount),
-          period: editPeriod
-        };
-        await updateIncome(editingItem, updatedIncome, user?.uid);
-        setIncomes(incomes.map(income => 
-          income.id === editingItem ? { ...income, ...updatedIncome } : income
-        ));
-      } else if (activeTab === 'expenses') {
-        const updatedCost = {
-          name: capitalizeFirstLetter(editName.trim()),
-          amount: parseFloat(editAmount),
-          period: editPeriod
-        };
-        await updateCost(editingItem, updatedCost, user?.uid);
-        setCosts(costs.map(cost => 
-          cost.id === editingItem ? { ...cost, ...updatedCost } : cost
-        ));
-      } else if (activeTab === 'goals') {
-        const updatedGoal = {
-          name: capitalizeFirstLetter(editName.trim()),
-          price: parseFloat(editPrice),
-          dailyContribution: parseFloat(editContribution)
-        };
-        await updateGoal(editingItem, updatedGoal, user?.uid);
-        setGoals(goals.map(goal => 
-          goal.id === editingItem ? { ...goal, ...updatedGoal } : goal
-        ));
-      }
-    } catch (error) {
-      console.error('Error updating item:', error);
-    } finally {
-      setEditingItem(null);
-      setEditName('');
-      setEditAmount('');
-      setEditPeriod('monthly');
-      setEditPrice('');
-      setEditContribution('');
-    }
+    const updatedData = {
+      name: editName,
+      amount: editAmount,
+      period: editPeriod,
+      price: editPrice,
+      dailyContribution: editContribution
+    };
+
+    await onUpdateItem(editingItem, updatedData);
+    
+    setEditingItem(null);
+    setEditName('');
+    setEditAmount('');
+    setEditPeriod('monthly');
+    setEditPrice('');
+    setEditContribution('');
   };
 
   const handleCancel = () => {
@@ -245,19 +119,8 @@ const ItemsList = ({
   };
 
   const handleDelete = async (id) => {
-    try {
-      if (activeTab === 'income') {
-        await deleteIncome(id, user?.uid);
-        setIncomes(incomes.filter(income => income.id !== id));
-      } else if (activeTab === 'expenses') {
-        await deleteCost(id, user?.uid);
-        setCosts(costs.filter(cost => cost.id !== id));
-      } else if (activeTab === 'goals') {
-        await deleteGoal(id, user?.uid);
-        setGoals(goals.filter(goal => goal.id !== id));
-      }
-    } catch (error) {
-      console.error('Error deleting item:', error);
+    if (onDeleteItem) {
+      await onDeleteItem(id);
     }
   };
 
@@ -330,7 +193,6 @@ const ItemsList = ({
 
   const renderDisplayContent = (item) => {
     if (activeTab === 'goals') {
-      // Add null safety for goals
       const price = item.price || 0;
       const dailyContribution = item.dailyContribution || 0;
       const days = dailyContribution > 0 ? Math.ceil(price / dailyContribution) : Infinity;
@@ -339,8 +201,6 @@ const ItemsList = ({
       if (days !== Infinity) {
         targetDate.setDate(targetDate.getDate() + days);
       }
-      
-
       
       return (
         <div className="flex flex-col">
@@ -399,12 +259,7 @@ const ItemsList = ({
     );
   };
 
-  const items = getItems();
-  
-  // Debug: Log current tab and items for debugging
-  if (activeTab === 'goals' && goals.length === 0) {
-    console.log(`🔍 No goals found. Add a goal using the form above.`);
-  }
+  const { title, items, showSort } = displayData;
 
   return (
     <div className="p-3 border rounded mb-2 flex-1">
@@ -412,7 +267,7 @@ const ItemsList = ({
       <div className="flex flex-col mb-4">
         {/* Title and Special Unit Line */}
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-700">{getTitle()}</h2>
+          <h2 className="text-xl font-semibold text-gray-700">{title}</h2>
           
           {activeTab === 'income' || activeTab === 'expenses' ? (
             <div className="flex items-center gap-1 relative">
@@ -442,7 +297,7 @@ const ItemsList = ({
         </div>
         
         {/* Sort Line */}
-        {activeTab !== 'report' && (
+        {showSort && (
           <div className="flex justify-end items-center mt-2">
             <div className="flex items-center gap-1">
               <label className="text-xs font-medium text-gray-600">Sort:</label>
@@ -460,7 +315,7 @@ const ItemsList = ({
       </div>
 
       {/* Visual Indicator - Bouncing Red Dot */}
-      {activeTab !== 'report' && (
+      {activeTab !== 'report' && !isAddAreaOpen && (
         ((activeTab === 'income' || activeTab === 'expenses') && !hasMoneyInBank) || 
         (activeTab === 'goals' && !hasSpendLimit)
       ) ? (
@@ -491,7 +346,7 @@ const ItemsList = ({
               onSave={handleSave}
               onCancel={handleCancel}
               onDelete={activeTab !== 'report' ? () => handleDelete(item.id) : undefined}
-              timestamp={item.timestamp || item.createdAt || item.date || item.created}
+                              timestamp={item.timestamp}
               period={activeTab === 'income' || activeTab === 'expenses' ? item.period : undefined}
             >
               {activeTab !== 'report' && editingItem === item.id ? (

@@ -13,9 +13,10 @@ const AddArea = ({
   goals,
   setGoals,
   selectedCurrency,
-  user
+  user,
+  isOpen,
+  setIsOpen
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const areaRef = useRef(null);
   
@@ -82,37 +83,24 @@ const AddArea = ({
         setIncomeAmount('');
         setIncomePeriod('monthly');
       }
-    } catch (error) {
-      console.error('Error adding income:', error);
+    } catch {
+      // Handle error silently
     } finally {
       setAddingIncome(false);
     }
   };
 
   const handleAddCost = async (data = null) => {
-    console.log('🏭 FACTORY: handleAddCost called');
-    console.log('📦 Input data:', data);
-    console.log('📝 Current form state:', { costName, costAmount, costPeriod });
-    
     const itemData = data || {
       name: costName.trim(),
       amount: parseFloat(costAmount),
       period: costPeriod
     };
-    
-    console.log('🔍 Final itemData:', itemData);
 
     if (!itemData.name || !itemData.amount || isNaN(itemData.amount) || itemData.amount <= 0) {
-      console.log('❌ Validation failed:', { 
-        hasName: !!itemData.name, 
-        hasAmount: !!itemData.amount, 
-        isNumber: !isNaN(itemData.amount), 
-        isPositive: itemData.amount > 0 
-      });
       return;
     }
 
-    console.log('✅ Validation passed, starting save process');
     setAddingCost(true);
     
     try {
@@ -123,27 +111,19 @@ const AddArea = ({
         userId: user?.uid
       };
       
-      console.log('💾 Saving cost to database:', newCost);
       const savedCost = await saveCost(newCost);
-      console.log('✅ Cost saved successfully:', savedCost);
-      
       setCosts([...costs, savedCost]);
-      console.log('📊 Updated costs state, new length:', costs.length + 1);
       
       // Reset form only if not from voice input
       if (!data) {
-        console.log('🔄 Resetting form fields');
         setCostName('');
         setCostAmount('');
         setCostPeriod('monthly');
-      } else {
-        console.log('🎤 Voice input - skipping form reset');
       }
-    } catch (error) {
-      console.error('💥 Error adding cost:', error);
+    } catch {
+      // Handle error silently
     } finally {
       setAddingCost(false);
-      console.log('🏁 handleAddCost completed');
     }
   };
 
@@ -176,8 +156,8 @@ const AddArea = ({
         setGoalPrice('');
         setDailyContribution('');
       }
-    } catch (error) {
-      console.error('Error adding goal:', error);
+    } catch {
+      // Handle error silently
     } finally {
       setAddingGoal(false);
     }
@@ -291,128 +271,51 @@ const AddArea = ({
     }
   };
 
-  const handleVoiceTranscript = (transcript) => {
-    const config = getTabConfig();
-    if (!config) return;
 
-    // Smart parsing based on active tab
-    const words = transcript.toLowerCase().split(' ');
-    let name = '';
-    let amount = '';
-    let period = '';
-    let dailyContribution = '';
-
-    if (activeTab === 'income') {
-      // Parse income: "salary 50000 monthly" or "freelance 2000 daily"
-      const amountIndex = words.findIndex(word => !isNaN(word) || word.includes('k') || word.includes('thousand'));
-      if (amountIndex !== -1) {
-        name = words.slice(0, amountIndex).join(' ');
-        amount = words[amountIndex].replace('k', '000').replace('thousand', '000');
-        period = words[amountIndex + 1] || 'monthly';
-      }
-    } else if (activeTab === 'expenses') {
-      // Parse expense: "rent 15000 monthly" or "coffee 50 daily"
-      const amountIndex = words.findIndex(word => !isNaN(word) || word.includes('k') || word.includes('thousand'));
-      if (amountIndex !== -1) {
-        name = words.slice(0, amountIndex).join(' ');
-        amount = words[amountIndex].replace('k', '000').replace('thousand', '000');
-        period = words[amountIndex + 1] || 'monthly';
-      }
-    } else if (activeTab === 'goals') {
-      // Parse goal: "new phone 25000 100 daily" (name, price, daily contribution)
-      const amountIndex = words.findIndex(word => !isNaN(word) || word.includes('k') || word.includes('thousand'));
-      if (amountIndex !== -1) {
-        name = words.slice(0, amountIndex).join(' ');
-        amount = words[amountIndex].replace('k', '000').replace('thousand', '000');
-        dailyContribution = words[amountIndex + 1] || '100';
-      }
-    }
-
-    // Update the appropriate fields
-    if (name) {
-      if (activeTab === 'income') setIncomeName(name);
-      else if (activeTab === 'expenses') setCostName(name);
-      else if (activeTab === 'goals') setGoalName(name);
-    }
-    if (amount) {
-      if (activeTab === 'income') setIncomeAmount(amount);
-      else if (activeTab === 'expenses') setCostAmount(amount);
-      else if (activeTab === 'goals') setGoalPrice(amount);
-    }
-    if (period) {
-      if (activeTab === 'income') setIncomePeriod(period);
-      else if (activeTab === 'expenses') setCostPeriod(period);
-    }
-    if (dailyContribution && activeTab === 'goals') {
-      setDailyContribution(dailyContribution);
-    }
-  };
 
   const handleDataExtracted = async (extractedData) => {
-    console.log('🎤 VOICE INPUT: Starting data extraction process');
-    console.log('📥 Raw extracted data:', extractedData);
-    
     // Validate the extracted data
     if (!extractedData || typeof extractedData !== 'object') {
-      console.log('❌ Invalid extracted data format');
       return;
     }
 
     try {
       if (activeTab === 'income') {
-        console.log('💰 Processing as INCOME');
         const { name, amount, period } = extractedData;
-        console.log('📋 Extracted fields:', { name, amount, period });
         
         if (name && amount && period) {
-          // Create a new object with proper structure
           const incomeData = {
             name: name.trim(),
             amount: parseFloat(amount),
             period: period
           };
-          console.log('🔧 Transformed income data:', incomeData);
           await handleAddIncome(incomeData);
-        } else {
-          console.log('❌ Missing required income fields');
         }
       } else if (activeTab === 'expenses') {
-        console.log('💸 Processing as EXPENSE');
         const { name, amount, period } = extractedData;
-        console.log('📋 Extracted fields:', { name, amount, period });
         
         if (name && amount && period) {
-          // Create a new object with proper structure
           const costData = {
             name: name.trim(),
             amount: parseFloat(amount),
             period: period
           };
-          console.log('🔧 Transformed cost data:', costData);
           await handleAddCost(costData);
-        } else {
-          console.log('❌ Missing required expense fields');
         }
       } else if (activeTab === 'goals') {
-        console.log('🎯 Processing as GOAL');
         const { name, price, dailyContribution } = extractedData;
-        console.log('📋 Extracted fields:', { name, price, dailyContribution });
         
         if (name && price && dailyContribution) {
-          // Create a new object with proper structure
           const goalData = {
             name: name.trim(),
             price: parseFloat(price),
             dailyContribution: parseFloat(dailyContribution)
           };
-          console.log('🔧 Transformed goal data:', goalData);
           await handleAddGoal(goalData);
-        } else {
-          console.log('❌ Missing required goal fields');
         }
       }
-    } catch (error) {
-      console.error('💥 Error in handleDataExtracted:', error);
+    } catch {
+      // Handle error silently
     }
   };
 
@@ -422,10 +325,12 @@ const AddArea = ({
   return (
     <div
       ref={areaRef}
-      className="p-3 border rounded mb-2 cursor-pointer"
-      {...(!isOpen ? { onClick: () => setIsOpen(true) } : {})}
+      className="p-3 border rounded mb-2"
     >
-      <div className="flex items-center justify-between w-full">
+      <div 
+        className="flex items-center justify-between w-full cursor-pointer"
+        onClick={() => setIsOpen(!isOpen)}
+      >
         <h2 className="text-xl font-semibold select-none flex items-center gap-2">
           {config.title}
           <svg 
@@ -438,18 +343,16 @@ const AddArea = ({
           </svg>
         </h2>
         <div className="flex items-center gap-2">
-          {!isOpen && (
-            <span onClick={e => e.stopPropagation()}>
-              <VoiceInput 
-                onTranscript={handleVoiceTranscript}
-                isRecording={isRecording}
-                setIsRecording={setIsRecording}
-                activeTab={activeTab}
-                onDataExtracted={handleDataExtracted}
-                selectedCurrency={selectedCurrency}
-              />
-            </span>
-          )}
+          <span onClick={e => e.stopPropagation()}>
+                        <VoiceInput 
+              onTranscript={() => {}} // Placeholder for transcript callback
+              isRecording={isRecording}
+              setIsRecording={setIsRecording}
+              activeTab={activeTab}
+              onDataExtracted={handleDataExtracted}
+              selectedCurrency={selectedCurrency}
+            />
+          </span>
         </div>
       </div>
       {isOpen && (
@@ -485,7 +388,7 @@ const AddArea = ({
               <button 
                 onClick={e => { e.stopPropagation(); config.onSubmit(); }} 
                 disabled={config.isSubmitting}
-                className={`px-3 py-2 text-white rounded text-base flex-1 ${
+                className={`px-3 py-2 text-white rounded text-base w-full ${
                   config.isSubmitting 
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-500 hover:bg-blue-600'
@@ -493,14 +396,6 @@ const AddArea = ({
               >
                 {config.isSubmitting ? 'Adding...' : 'Add'}
               </button>
-              <VoiceInput 
-                onTranscript={handleVoiceTranscript}
-                isRecording={isRecording}
-                setIsRecording={setIsRecording}
-                activeTab={activeTab}
-                onDataExtracted={handleDataExtracted}
-                selectedCurrency={selectedCurrency}
-              />
             </div>
           </div>
           <div className="text-xs text-gray-500">

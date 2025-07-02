@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2025-07-02T10:18:17.069Z",
+  "totalUsers": 0,
+  "totalDocuments": 0,
+  "fieldCounts": {
+    "timestamp": 0,
+    "createdAt": 0,
+    "date": 0,
+    "created": 0,
+    "missing": 0
+  },
+  "documentsToMigrate": [],
+  "sampleDocuments": {},
+  "problemDocuments": []
+}

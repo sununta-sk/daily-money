@@ -15,8 +15,7 @@ export const fetchExchangeRates = async () => {
     const data = await response.json();
     exchangeRates = data.rates;
     return data.rates;
-  } catch (error) {
-    console.error("Error fetching exchange rates:", error);
+  } catch {
     return {};
   }
 };

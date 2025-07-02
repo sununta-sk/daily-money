@@ -3,8 +3,17 @@ import Navbar from './components/NavBar/Navbar';
 import AddArea from './components/AddArea/AddArea';
 import ItemsList from './components/ItemsList/ItemsList';
 import WhaleLogo from './components/WhaleLogo';
-import { onAuthChange, getUserData, signInWithGoogle } from './utils/firebase';
+import TimestampMigration from './components/TimestampMigration';
+import { onAuthChange, getUserData, signInWithGoogle, updateIncome, updateCost, updateGoal, deleteIncome, deleteCost, deleteGoal } from './utils/firebase';
 import { fetchExchangeRates } from './utils/currency';
+import { capitalizeFirstLetter } from './utils/formatters';
+import { 
+  calculateTotalMoney, 
+  calculateRecurringIncome, 
+  calculateMonthlyExpenses, 
+  calculateDailyFreeMoney, 
+  calculateHowLongYouCanLive 
+} from './utils/calculations';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -19,6 +28,143 @@ function App() {
   const [moneyInBank, setMoneyInBank] = useState(0);
   const [spendLimit, setSpendLimit] = useState(0);
   const [sortOrder, setSortOrder] = useState('newest');
+  const [isAddAreaOpen, setIsAddAreaOpen] = useState(false);
+
+  // Helper function to sort items by timestamp
+  const sortItems = (items, sortOrder) => {
+    if (!items || items.length === 0) return [];
+    
+    return [...items].sort((a, b) => {
+      const getTimestamp = (item) => {
+        const timestamp = item.timestamp;
+        
+        if (!timestamp) {
+          return new Date();
+        }
+        
+        if (timestamp.toDate) {
+          return timestamp.toDate();
+        } else if (timestamp.seconds) {
+          return new Date(timestamp.seconds * 1000);
+        } else {
+          return new Date(timestamp);
+        }
+      };
+      
+      const dateA = getTimestamp(a);
+      const dateB = getTimestamp(b);
+      
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+  };
+
+  // Prepare display data based on active tab
+  const getDisplayData = () => {
+    switch (activeTab) {
+      case 'income':
+        return {
+          title: 'Your Income',
+          items: sortItems(incomes, sortOrder),
+          showSort: true
+        };
+      case 'expenses':
+        return {
+          title: 'Your Expenses',
+          items: sortItems(costs, sortOrder),
+          showSort: true
+        };
+      case 'goals':
+        return {
+          title: 'Your Goals',
+          items: sortItems(goals, sortOrder),
+          showSort: true
+        };
+      case 'report': {
+        const totalMoney = calculateTotalMoney(incomes, costs, moneyInBank);
+        const recurringIncome = calculateRecurringIncome(incomes);
+        const totalExpenses = calculateMonthlyExpenses(costs);
+        const dailyFreeMoney = calculateDailyFreeMoney(incomes, costs);
+        const survivalTime = calculateHowLongYouCanLive(incomes, costs, moneyInBank);
+        
+        const reportItems = [
+          { id: 'money-in-bank', name: 'Money in Bank', amount: parseFloat(moneyInBank) || 0, subtitle: 'Current bank balance' },
+          { id: 'total-money', name: 'Total Money Available', amount: totalMoney, subtitle: 'Bank + all income sources' },
+          { id: 'recurring-income', name: 'Monthly Recurring Income', amount: recurringIncome, subtitle: 'Regular income streams only' },
+          { id: 'total-expenses', name: 'Total Monthly Expenses', amount: totalExpenses, subtitle: 'Including spend limits' },
+          { id: 'daily-free-money', name: 'Daily Free Money', amount: dailyFreeMoney, subtitle: 'Available daily after expenses' },
+          { id: 'survival-time', name: 'How Long You Can Live', amount: survivalTime === Infinity ? 'Forever' : `${Math.round(survivalTime)} days`, subtitle: 'Based on current income and expenses', isText: true }
+        ];
+        
+        return {
+          title: 'Financial Report',
+          items: reportItems,
+          showSort: false
+        };
+      }
+      default:
+        return {
+          title: 'Items',
+          items: [],
+          showSort: false
+        };
+    }
+  };
+
+  // CRUD operations
+  const handleUpdateItem = async (id, updatedData) => {
+    try {
+      if (activeTab === 'income') {
+        const updatedIncome = {
+          name: capitalizeFirstLetter(updatedData.name?.trim() || ''),
+          amount: parseFloat(updatedData.amount),
+          period: updatedData.period
+        };
+        await updateIncome(id, updatedIncome, user?.uid);
+        setIncomes(incomes.map(income => 
+          income.id === id ? { ...income, ...updatedIncome } : income
+        ));
+      } else if (activeTab === 'expenses') {
+        const updatedCost = {
+          name: capitalizeFirstLetter(updatedData.name?.trim() || ''),
+          amount: parseFloat(updatedData.amount),
+          period: updatedData.period
+        };
+        await updateCost(id, updatedCost, user?.uid);
+        setCosts(costs.map(cost => 
+          cost.id === id ? { ...cost, ...updatedCost } : cost
+        ));
+      } else if (activeTab === 'goals') {
+        const updatedGoal = {
+          name: capitalizeFirstLetter(updatedData.name?.trim() || ''),
+          price: parseFloat(updatedData.price),
+          dailyContribution: parseFloat(updatedData.dailyContribution)
+        };
+        await updateGoal(id, updatedGoal, user?.uid);
+        setGoals(goals.map(goal => 
+          goal.id === id ? { ...goal, ...updatedGoal } : goal
+        ));
+      }
+    } catch {
+      // Handle error silently
+    }
+  };
+
+  const handleDeleteItem = async (id) => {
+    try {
+      if (activeTab === 'income') {
+        await deleteIncome(id, user?.uid);
+        setIncomes(incomes.filter(income => income.id !== id));
+      } else if (activeTab === 'expenses') {
+        await deleteCost(id, user?.uid);
+        setCosts(costs.filter(cost => cost.id !== id));
+      } else if (activeTab === 'goals') {
+        await deleteGoal(id, user?.uid);
+        setGoals(goals.filter(goal => goal.id !== id));
+      }
+    } catch {
+      // Handle error silently
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthChange((user) => {
@@ -39,10 +185,10 @@ function App() {
       const data = await getUserData(userId);
       setIncomes(data.incomes || []);
       setCosts(data.costs || []);
-      setGoals(data.goals || []);
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    }
+             setGoals(data.goals || []);
+     } catch {
+       // Handle error silently
+     }
   };
 
   if (loading) {
@@ -65,10 +211,10 @@ function App() {
               <button
             onClick={async () => {
               try {
-                await signInWithGoogle();
-              } catch (error) {
-                console.error('Error signing in:', error);
-              }
+                                 await signInWithGoogle();
+               } catch {
+                 // Handle error silently
+               }
             }}
             className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2 mx-auto text-base"
           >
@@ -107,38 +253,40 @@ function App() {
         setSelectedCurrency={setSelectedCurrency}
       />
       
+      {/* TEMPORARY: Timestamp Migration Tool - Remove after migration */}
+      <TimestampMigration user={user} />
+      
       <div className="flex flex-col flex-1">
-        {activeTab !== 'report' && (
-            <AddArea 
-              activeTab={activeTab}
-              incomes={incomes}
-              setIncomes={setIncomes}
-              costs={costs}
-              setCosts={setCosts}
-              goals={goals}
-              setGoals={setGoals}
-              selectedCurrency={selectedCurrency}
-              user={user}
-                    />
+                {activeTab !== 'report' && (
+          <AddArea 
+            activeTab={activeTab}
+            incomes={incomes}
+            setIncomes={setIncomes}
+            costs={costs}
+            setCosts={setCosts}
+            goals={goals}
+            setGoals={setGoals}
+            selectedCurrency={selectedCurrency}
+            user={user}
+            isOpen={isAddAreaOpen}
+            setIsOpen={setIsAddAreaOpen}
+          />
         )}
 
-                    <ItemsList
-              activeTab={activeTab}
-              incomes={incomes}
-              costs={costs}
-              goals={goals}
-              setIncomes={setIncomes}
-              setCosts={setCosts}
-              setGoals={setGoals}
-              moneyInBank={moneyInBank}
-              setMoneyInBank={setMoneyInBank}
-              spendLimit={spendLimit}
-              setSpendLimit={setSpendLimit}
-              sortOrder={sortOrder}
-              setSortOrder={setSortOrder}
-              selectedCurrency={selectedCurrency}
-              user={user}
-                    />
+                            <ItemsList
+          displayData={getDisplayData()}
+          activeTab={activeTab}
+          moneyInBank={moneyInBank}
+          setMoneyInBank={setMoneyInBank}
+          spendLimit={spendLimit}
+          setSpendLimit={setSpendLimit}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+          selectedCurrency={selectedCurrency}
+          onUpdateItem={handleUpdateItem}
+          onDeleteItem={handleDeleteItem}
+          isAddAreaOpen={isAddAreaOpen}
+        />
               </div>
     </div>
   );

@@ -13,6 +13,10 @@ const { onCall } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const FormData = require("form-data");
 const axios = require("axios");
+const admin = require("firebase-admin");
+
+// Initialize Firebase Admin
+admin.initializeApp();
 
 // For cost control, you can set the maximum number of containers that can be
 // running at the same time. This helps mitigate the impact of unexpected
@@ -266,6 +270,222 @@ exports.processSmartRequest = onCall(
         error: error.message,
       });
       throw new Error(`Smart request failed: ${error.message}`);
+    }
+  }
+);
+
+// Database timestamp analysis and migration functions
+exports.analyzeTimestamps = onCall(
+  {
+    maxInstances: 1,
+  },
+  async (request) => {
+    try {
+      logger.info("analyzeTimestamps function called");
+
+      // Check authentication
+      if (!request.auth) {
+        throw new Error("Authentication required");
+      }
+
+      const db = admin.firestore();
+      const collections = ["incomes", "costs", "goals"];
+      const timestampFields = ["timestamp", "createdAt", "date", "created"];
+
+      const analysis = {
+        totalUsers: 0,
+        totalDocuments: 0,
+        fieldCounts: {
+          timestamp: 0,
+          createdAt: 0,
+          date: 0,
+          created: 0,
+          missing: 0,
+        },
+        sampleDocuments: {},
+      };
+
+      // Get all users
+      const usersSnapshot = await db.collection("users").get();
+      analysis.totalUsers = usersSnapshot.size;
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+
+        for (const collectionName of collections) {
+          try {
+            const collectionSnapshot = await db
+              .collection("users")
+              .doc(userId)
+              .collection(collectionName)
+              .get();
+
+            for (const doc of collectionSnapshot.docs) {
+              analysis.totalDocuments++;
+              const data = doc.data();
+
+              let hasTimestampField = false;
+              for (const field of timestampFields) {
+                if (data[field]) {
+                  analysis.fieldCounts[field]++;
+                  hasTimestampField = true;
+
+                  // Store sample documents for each field type
+                  if (!analysis.sampleDocuments[field]) {
+                    analysis.sampleDocuments[field] = {
+                      collection: collectionName,
+                      userId: userId,
+                      docId: doc.id,
+                      fieldValue: data[field],
+                    };
+                  }
+                  break; // Count only the first timestamp field found
+                }
+              }
+
+              if (!hasTimestampField) {
+                analysis.fieldCounts.missing++;
+              }
+            }
+          } catch (error) {
+            logger.warn(
+              `Error analyzing collection ${collectionName} for user ${userId}:`,
+              error.message
+            );
+          }
+        }
+      }
+
+      logger.info("Timestamp analysis completed", analysis);
+      return { success: true, analysis };
+    } catch (error) {
+      logger.error("Error in analyzeTimestamps function", {
+        error: error.message,
+      });
+      throw new Error(`Analysis failed: ${error.message}`);
+    }
+  }
+);
+
+exports.migrateTimestamps = onCall(
+  {
+    maxInstances: 1,
+  },
+  async (request) => {
+    try {
+      logger.info("migrateTimestamps function called");
+
+      // Check authentication
+      if (!request.auth) {
+        throw new Error("Authentication required");
+      }
+
+      const { dryRun = true } = request.data || {};
+      const db = admin.firestore();
+      const collections = ["incomes", "costs", "goals"];
+      const oldTimestampFields = ["createdAt", "date", "created"];
+
+      const migration = {
+        totalUsers: 0,
+        totalDocuments: 0,
+        migrated: 0,
+        errors: [],
+        operations: [],
+      };
+
+      // Get all users
+      const usersSnapshot = await db.collection("users").get();
+      migration.totalUsers = usersSnapshot.size;
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+
+        for (const collectionName of collections) {
+          try {
+            const collectionSnapshot = await db
+              .collection("users")
+              .doc(userId)
+              .collection(collectionName)
+              .get();
+
+            for (const doc of collectionSnapshot.docs) {
+              migration.totalDocuments++;
+              const data = doc.data();
+
+              // Check if document needs migration
+              let timestampValue = null;
+              let oldFieldName = null;
+
+              // If already has timestamp field, skip
+              if (data.timestamp) {
+                continue;
+              }
+
+              // Find the first old timestamp field
+              for (const field of oldTimestampFields) {
+                if (data[field]) {
+                  timestampValue = data[field];
+                  oldFieldName = field;
+                  break;
+                }
+              }
+
+              if (timestampValue && oldFieldName) {
+                const operation = {
+                  collection: collectionName,
+                  userId: userId,
+                  docId: doc.id,
+                  oldField: oldFieldName,
+                  value: timestampValue,
+                };
+
+                migration.operations.push(operation);
+
+                if (!dryRun) {
+                  // Perform the migration
+                  const updateData = {
+                    timestamp: timestampValue,
+                  };
+
+                  // Remove the old field
+                  updateData[oldFieldName] =
+                    admin.firestore.FieldValue.delete();
+
+                  await doc.ref.update(updateData);
+                  migration.migrated++;
+                }
+              }
+            }
+          } catch (error) {
+            const errorMsg = `Error migrating collection ${collectionName} for user ${userId}: ${error.message}`;
+            migration.errors.push(errorMsg);
+            logger.warn(errorMsg);
+          }
+        }
+      }
+
+      logger.info("Timestamp migration completed", {
+        dryRun,
+        totalOperations: migration.operations.length,
+        migrated: migration.migrated,
+        errors: migration.errors.length,
+      });
+
+      return {
+        success: true,
+        migration: {
+          ...migration,
+          dryRun,
+          message: dryRun
+            ? `Dry run completed. Found ${migration.operations.length} documents that need migration.`
+            : `Migration completed. ${migration.migrated} documents migrated.`,
+        },
+      };
+    } catch (error) {
+      logger.error("Error in migrateTimestamps function", {
+        error: error.message,
+      });
+      throw new Error(`Migration failed: ${error.message}`);
     }
   }
 );
