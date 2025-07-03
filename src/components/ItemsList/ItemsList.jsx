@@ -159,7 +159,7 @@ const ItemsList = ({
     }
 
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col">
         <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <input
             placeholder={
@@ -374,12 +374,12 @@ const ItemsList = ({
   const { title, items, showSort } = getDisplayData();
 
   return (
-    <div className="p-3 border rounded mb-2 flex-1">
+    <div className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md mb-2 flex-1">
       {/* Header Section */}
       <div className="flex flex-col mb-4">
         {/* Title and Special Unit Line */}
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-700">{title}</h2>
+          <h2 className="text-xl font-semibold text-gray-700 drop-shadow-sm">{title}</h2>
           {activeTab === "income" || activeTab === "expenses" ? (
             <div className="flex items-center gap-1 relative">
               {((activeTab === "income" || activeTab === "expenses") && !hasMoneyInBank) && (
@@ -400,7 +400,7 @@ const ItemsList = ({
                 value={moneyInBank}
                 onChange={(e) => setMoneyInBank(e.target.value)}
                 title="Estimated amount you could access if needed"
-                className="border border-gray-300 rounded px-2 py-1 text-xs w-32"
+                className="border border-gray-300 rounded-lg px-2 py-1 text-xs w-32 bg-white/80 shadow"
               />
             </div>
           ) : activeTab === "goals" ? (
@@ -423,7 +423,7 @@ const ItemsList = ({
                 value={spendLimit}
                 onChange={(e) => setSpendLimit(e.target.value)}
                 title="Maximum amount you want to spend per month"
-                className="border border-gray-300 rounded px-2 py-1 text-xs w-32"
+                className="border border-gray-300 rounded-lg px-2 py-1 text-xs w-32 bg-white/80 shadow"
               />
             </div>
           ) : null}
@@ -437,7 +437,7 @@ const ItemsList = ({
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
-                className="border border-gray-300 rounded px-1 py-1 text-xs"
+                className="border border-gray-300 rounded-lg px-1 py-1 text-xs bg-white/80 shadow"
               >
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>
@@ -460,29 +460,30 @@ const ItemsList = ({
           </div>
         ) : (
           items.map((item) => (
-            <EditableCard
-              key={item.id}
-              isEditing={activeTab !== "report" && editingItem === item.id}
-              onEdit={
-                activeTab !== "report" ? () => handleEdit(item) : undefined
-              }
-              onSave={handleSave}
-              onCancel={handleCancel}
-              onDelete={
-                activeTab !== "report" ? () => handleDelete(item.id) : undefined
-              }
-              timestamp={item.timestamp}
-              period={
-                activeTab === "income" || activeTab === "expenses"
-                  ? item.period
-                  : undefined
-              }
-              isExternal={activeTab === "income" ? item.isExternal : undefined}
-            >
-              {activeTab !== "report" && editingItem === item.id
-                ? renderEditForm()
-                : renderDisplayContent(item)}
-            </EditableCard>
+            <div className="rounded-2xl bg-white/80 shadow-md p-3 flex flex-col" key={item.id}>
+              <EditableCard
+                isEditing={activeTab !== "report" && editingItem === item.id}
+                onEdit={
+                  activeTab !== "report" ? () => handleEdit(item) : undefined
+                }
+                onSave={handleSave}
+                onCancel={handleCancel}
+                onDelete={
+                  activeTab !== "report" ? () => handleDelete(item.id) : undefined
+                }
+                timestamp={item.timestamp}
+                period={
+                  activeTab === "income" || activeTab === "expenses"
+                    ? item.period
+                    : undefined
+                }
+                isExternal={activeTab === "income" ? item.isExternal : undefined}
+              >
+                {activeTab !== "report" && editingItem === item.id
+                  ? renderEditForm()
+                  : renderDisplayContent(item)}
+              </EditableCard>
+            </div>
           ))
         )}
       </div>

@@ -211,41 +211,42 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-2 flex flex-col">
-      <Navbar
-        user={user}
-        onTabChange={setActiveTab}
-        onCurrencyChange={setSelectedCurrency}
-      />
-
+    <div className="min-h-screen w-full 
+    bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 flex flex-col md:p-4 p-3">
       <div className="flex flex-col flex-1">
-        {activeTab !== "report" && (
-          <AddArea
+        <Navbar
+          user={user}
+          onTabChange={setActiveTab}
+          onCurrencyChange={setSelectedCurrency}
+        />
+        <div className="flex flex-col flex-1">
+          {activeTab !== 'report' && (
+            <AddArea
             activeTab={activeTab}
             onAddIncome={handleAddIncome}
             onAddCost={handleAddCost}
             onAddGoal={handleAddGoal}
             selectedCurrency={selectedCurrency}
             onOpenChange={setIsAddAreaOpen}
+            />
+          )}
+          <ItemsList
+            activeTab={activeTab}
+            incomes={incomes}
+            costs={costs}
+            goals={goals}
+            moneyInBank={moneyInBank}
+            setMoneyInBank={setMoneyInBank}
+            spendLimit={spendLimit}
+            setSpendLimit={setSpendLimit}
+            sortOrder={sortOrder}
+            setSortOrder={setSortOrder}
+            selectedCurrency={selectedCurrency}
+            onUpdateItem={handleUpdateItem}
+            onDeleteItem={handleDeleteItem}
+            isAddAreaOpen={isAddAreaOpen}
           />
-        )}
-
-        <ItemsList
-          activeTab={activeTab}
-          incomes={incomes}
-          costs={costs}
-          goals={goals}
-          moneyInBank={moneyInBank}
-          setMoneyInBank={setMoneyInBank}
-          spendLimit={spendLimit}
-          setSpendLimit={setSpendLimit}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          selectedCurrency={selectedCurrency}
-          onUpdateItem={handleUpdateItem}
-          onDeleteItem={handleDeleteItem}
-          isAddAreaOpen={isAddAreaOpen}
-        />
+        </div>
       </div>
     </div>
   );

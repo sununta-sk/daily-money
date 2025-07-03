@@ -261,7 +261,7 @@ const AddArea = ({
   if (!config) return null;
 
   return (
-    <div ref={areaRef} className="p-3 border rounded mb-2">
+    <div ref={areaRef} className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md mb-2">
       <div
         className="flex items-center justify-between w-full cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}
@@ -292,14 +292,14 @@ const AddArea = ({
             >
               <button
                 onClick={() => setIsExternalIncome(!isExternalIncome)}
-                className={`w-10 h-5 rounded-full border-2 transition-colors duration-200 ${
+                className={`w-10 h-5 rounded-full border-2 transition-colors duration-200 shadow-md ${
                   isExternalIncome
-                    ? "bg-green-500 border-green-500"
+                    ? "bg-gradient-to-r from-green-400 to-blue-400 border-green-400"
                     : "bg-gray-300 border-gray-300"
                 }`}
               >
                 <div
-                  className={`w-3 h-3 bg-white rounded-full transition-transform duration-200 ${
+                  className={`w-3 h-3 bg-white rounded-full transition-transform duration-200 shadow-md ${
                     isExternalIncome ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
@@ -333,7 +333,7 @@ const AddArea = ({
                   <select
                     value={field.value}
                     onChange={field.onChange}
-                    className="border border-gray-300 rounded px-3 py-2 text-base w-full"
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-base w-full bg-white/80 shadow"
                   >
                     {field.options.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -348,7 +348,7 @@ const AddArea = ({
                     value={field.value}
                     onChange={field.onChange}
                     onKeyPress={handleKeyPress}
-                    className="border border-gray-300 rounded px-3 py-2 text-base w-full"
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-base w-full bg-white/80 shadow"
                   />
                 )}
               </div>
@@ -359,7 +359,7 @@ const AddArea = ({
                   e.stopPropagation();
                   config.onSubmit();
                 }}
-                className="px-3 py-2 text-white rounded text-base w-full bg-blue-500 hover:bg-blue-600"
+                className="px-3 py-2 text-white rounded-lg text-base w-full bg-gradient-to-r from-blue-400 to-indigo-500 shadow-md hover:from-blue-500 hover:to-indigo-600"
               >
                 Add
               </button>
