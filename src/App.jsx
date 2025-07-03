@@ -1,148 +1,82 @@
-import React, { useState, useEffect } from 'react';
-import Navbar from './components/NavBar/Navbar';
-import AddArea from './components/AddArea/AddArea';
-import ItemsList from './components/ItemsList/ItemsList';
-import WhaleLogo from './components/WhaleLogo';
-import TimestampMigration from './components/TimestampMigration';
-import { onAuthChange, getUserData, signInWithGoogle, updateIncome, updateCost, updateGoal, deleteIncome, deleteCost, deleteGoal } from './utils/firebase';
-import { fetchExchangeRates } from './utils/currency';
-import { capitalizeFirstLetter } from './utils/formatters';
-import { 
-  calculateTotalMoney, 
-  calculateRecurringIncome, 
-  calculateMonthlyExpenses, 
-  calculateDailyFreeMoney, 
-  calculateHowLongYouCanLive 
-} from './utils/calculations';
+import React, { useState, useEffect } from "react";
+import Navbar from "./components/NavBar/Navbar";
+import AddArea from "./components/AddArea/AddArea";
+import ItemsList from "./components/ItemsList/ItemsList";
+import WhaleLogo from "./components/WhaleLogo";
+import {
+  onAuthChange,
+  getUserData,
+  signInWithGoogle,
+  updateIncome,
+  updateCost,
+  updateGoal,
+  deleteIncome,
+  deleteCost,
+  deleteGoal,
+  saveIncome,
+  saveCost,
+  saveGoal,
+} from "./utils/database";
+import { fetchExchangeRates } from "./utils/currency";
+import { capitalizeFirstLetter } from "./utils/formatters";
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('income');
-  const [selectedCurrency, setSelectedCurrency] = useState('THB');
-  
+  const [activeTab, setActiveTab] = useState("income");
+  const [selectedCurrency, setSelectedCurrency] = useState("THB");
+
   // Data states
   const [incomes, setIncomes] = useState([]);
   const [costs, setCosts] = useState([]);
   const [goals, setGoals] = useState([]);
-  const [moneyInBank, setMoneyInBank] = useState(0);
-  const [spendLimit, setSpendLimit] = useState(0);
-  const [sortOrder, setSortOrder] = useState('newest');
+  const [moneyInBank, setMoneyInBank] = useState("");
+  const [spendLimit, setSpendLimit] = useState("");
+  const [sortOrder, setSortOrder] = useState("newest");
   const [isAddAreaOpen, setIsAddAreaOpen] = useState(false);
-
-  // Helper function to sort items by timestamp
-  const sortItems = (items, sortOrder) => {
-    if (!items || items.length === 0) return [];
-    
-    return [...items].sort((a, b) => {
-      const getTimestamp = (item) => {
-        const timestamp = item.timestamp;
-        
-        if (!timestamp) {
-          return new Date();
-        }
-        
-        if (timestamp.toDate) {
-          return timestamp.toDate();
-        } else if (timestamp.seconds) {
-          return new Date(timestamp.seconds * 1000);
-        } else {
-          return new Date(timestamp);
-        }
-      };
-      
-      const dateA = getTimestamp(a);
-      const dateB = getTimestamp(b);
-      
-      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
-    });
-  };
-
-  // Prepare display data based on active tab
-  const getDisplayData = () => {
-    switch (activeTab) {
-      case 'income':
-        return {
-          title: 'Your Income',
-          items: sortItems(incomes, sortOrder),
-          showSort: true
-        };
-      case 'expenses':
-        return {
-          title: 'Your Expenses',
-          items: sortItems(costs, sortOrder),
-          showSort: true
-        };
-      case 'goals':
-        return {
-          title: 'Your Goals',
-          items: sortItems(goals, sortOrder),
-          showSort: true
-        };
-      case 'report': {
-        const totalMoney = calculateTotalMoney(incomes, costs, moneyInBank);
-        const recurringIncome = calculateRecurringIncome(incomes);
-        const totalExpenses = calculateMonthlyExpenses(costs);
-        const dailyFreeMoney = calculateDailyFreeMoney(incomes, costs);
-        const survivalTime = calculateHowLongYouCanLive(incomes, costs, moneyInBank);
-        
-        const reportItems = [
-          { id: 'money-in-bank', name: 'Money in Bank', amount: parseFloat(moneyInBank) || 0, subtitle: 'Current bank balance' },
-          { id: 'total-money', name: 'Total Money Available', amount: totalMoney, subtitle: 'Bank + all income sources' },
-          { id: 'recurring-income', name: 'Monthly Recurring Income', amount: recurringIncome, subtitle: 'Regular income streams only' },
-          { id: 'total-expenses', name: 'Total Monthly Expenses', amount: totalExpenses, subtitle: 'Including spend limits' },
-          { id: 'daily-free-money', name: 'Daily Free Money', amount: dailyFreeMoney, subtitle: 'Available daily after expenses' },
-          { id: 'survival-time', name: 'How Long You Can Live', amount: survivalTime === Infinity ? 'Forever' : `${Math.round(survivalTime)} days`, subtitle: 'Based on current income and expenses', isText: true }
-        ];
-        
-        return {
-          title: 'Financial Report',
-          items: reportItems,
-          showSort: false
-        };
-      }
-      default:
-        return {
-          title: 'Items',
-          items: [],
-          showSort: false
-        };
-    }
-  };
 
   // CRUD operations
   const handleUpdateItem = async (id, updatedData) => {
     try {
-      if (activeTab === 'income') {
+      if (activeTab === "income") {
         const updatedIncome = {
-          name: capitalizeFirstLetter(updatedData.name?.trim() || ''),
+          name: capitalizeFirstLetter(updatedData.name?.trim() || ""),
           amount: parseFloat(updatedData.amount),
-          period: updatedData.period
+          period: updatedData.period,
+          ...(updatedData.isExternal !== undefined && {
+            isExternal: updatedData.isExternal,
+          }),
         };
         await updateIncome(id, updatedIncome, user?.uid);
-        setIncomes(incomes.map(income => 
-          income.id === id ? { ...income, ...updatedIncome } : income
-        ));
-      } else if (activeTab === 'expenses') {
+        setIncomes(
+          incomes.map((income) =>
+            income.id === id ? { ...income, ...updatedIncome } : income
+          )
+        );
+      } else if (activeTab === "expenses") {
         const updatedCost = {
-          name: capitalizeFirstLetter(updatedData.name?.trim() || ''),
+          name: capitalizeFirstLetter(updatedData.name?.trim() || ""),
           amount: parseFloat(updatedData.amount),
-          period: updatedData.period
+          period: updatedData.period,
         };
         await updateCost(id, updatedCost, user?.uid);
-        setCosts(costs.map(cost => 
-          cost.id === id ? { ...cost, ...updatedCost } : cost
-        ));
-      } else if (activeTab === 'goals') {
+        setCosts(
+          costs.map((cost) =>
+            cost.id === id ? { ...cost, ...updatedCost } : cost
+          )
+        );
+      } else if (activeTab === "goals") {
         const updatedGoal = {
-          name: capitalizeFirstLetter(updatedData.name?.trim() || ''),
+          name: capitalizeFirstLetter(updatedData.name?.trim() || ""),
           price: parseFloat(updatedData.price),
-          dailyContribution: parseFloat(updatedData.dailyContribution)
+          dailyContribution: parseFloat(updatedData.dailyContribution),
         };
         await updateGoal(id, updatedGoal, user?.uid);
-        setGoals(goals.map(goal => 
-          goal.id === id ? { ...goal, ...updatedGoal } : goal
-        ));
+        setGoals(
+          goals.map((goal) =>
+            goal.id === id ? { ...goal, ...updatedGoal } : goal
+          )
+        );
       }
     } catch {
       // Handle error silently
@@ -151,16 +85,47 @@ function App() {
 
   const handleDeleteItem = async (id) => {
     try {
-      if (activeTab === 'income') {
+      if (activeTab === "income") {
         await deleteIncome(id, user?.uid);
-        setIncomes(incomes.filter(income => income.id !== id));
-      } else if (activeTab === 'expenses') {
+        setIncomes(incomes.filter((income) => income.id !== id));
+      } else if (activeTab === "expenses") {
         await deleteCost(id, user?.uid);
-        setCosts(costs.filter(cost => cost.id !== id));
-      } else if (activeTab === 'goals') {
+        setCosts(costs.filter((cost) => cost.id !== id));
+      } else if (activeTab === "goals") {
         await deleteGoal(id, user?.uid);
-        setGoals(goals.filter(goal => goal.id !== id));
+        setGoals(goals.filter((goal) => goal.id !== id));
       }
+    } catch {
+      // Handle error silently
+    }
+  };
+
+  // Add item callbacks
+  const handleAddIncome = async (incomeData) => {
+    try {
+      const newIncome = { ...incomeData, userId: user?.uid };
+      const savedIncome = await saveIncome(newIncome);
+      setIncomes([...incomes, savedIncome]);
+    } catch {
+      // Handle error silently
+    }
+  };
+
+  const handleAddCost = async (costData) => {
+    try {
+      const newCost = { ...costData, userId: user?.uid };
+      const savedCost = await saveCost(newCost);
+      setCosts([...costs, savedCost]);
+    } catch {
+      // Handle error silently
+    }
+  };
+
+  const handleAddGoal = async (goalData) => {
+    try {
+      const newGoal = { ...goalData, userId: user?.uid };
+      const savedGoal = await saveGoal(newGoal);
+      setGoals([...goals, savedGoal]);
     } catch {
       // Handle error silently
     }
@@ -170,10 +135,10 @@ function App() {
     const unsubscribe = onAuthChange((user) => {
       setUser(user);
       setLoading(false);
-      
+
       if (user) {
         loadUserData(user.uid);
-          fetchExchangeRates();
+        fetchExchangeRates();
       }
     });
 
@@ -185,10 +150,10 @@ function App() {
       const data = await getUserData(userId);
       setIncomes(data.incomes || []);
       setCosts(data.costs || []);
-             setGoals(data.goals || []);
-     } catch {
-       // Handle error silently
-     }
+      setGoals(data.goals || []);
+    } catch {
+      // Handle error silently
+    }
   };
 
   if (loading) {
@@ -200,82 +165,76 @@ function App() {
   }
 
   if (!user) {
-  return (
+    return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="flex items-center justify-center mb-4">
             <WhaleLogo className="w-16 h-16" />
-            </div>
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily Money</h1>
-          <p className="mb-4 text-gray-600">Please sign in to use the budget dashboard</p>
-              <button
+          <p className="mb-4 text-gray-600">
+            Please sign in to use the budget dashboard
+          </p>
+          <button
             onClick={async () => {
               try {
-                                 await signInWithGoogle();
-               } catch {
-                 // Handle error silently
-               }
+                await signInWithGoogle();
+              } catch {
+                // Handle error silently
+              }
             }}
             className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2 mx-auto text-base"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                Sign in with Google
-              </button>
-            </div>
-          </div>
+              <path
+                fill="currentColor"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="currentColor"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="currentColor"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              />
+              <path
+                fill="currentColor"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+            Sign in with Google
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 p-2 flex flex-col">
-      <Navbar 
+      <Navbar
         user={user}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        selectedCurrency={selectedCurrency}
-        setSelectedCurrency={setSelectedCurrency}
+        onTabChange={setActiveTab}
+        onCurrencyChange={setSelectedCurrency}
       />
-      
-      {/* TEMPORARY: Timestamp Migration Tool - Remove after migration */}
-      <TimestampMigration user={user} />
-      
+
       <div className="flex flex-col flex-1">
-                {activeTab !== 'report' && (
-          <AddArea 
+        {activeTab !== "report" && (
+          <AddArea
             activeTab={activeTab}
-            incomes={incomes}
-            setIncomes={setIncomes}
-            costs={costs}
-            setCosts={setCosts}
-            goals={goals}
-            setGoals={setGoals}
+            onAddIncome={handleAddIncome}
+            onAddCost={handleAddCost}
+            onAddGoal={handleAddGoal}
             selectedCurrency={selectedCurrency}
-            user={user}
-            isOpen={isAddAreaOpen}
-            setIsOpen={setIsAddAreaOpen}
+            onOpenChange={setIsAddAreaOpen}
           />
         )}
 
-                            <ItemsList
-          displayData={getDisplayData()}
+        <ItemsList
           activeTab={activeTab}
+          incomes={incomes}
+          costs={costs}
+          goals={goals}
           moneyInBank={moneyInBank}
           setMoneyInBank={setMoneyInBank}
           spendLimit={spendLimit}
@@ -287,7 +246,7 @@ function App() {
           onDeleteItem={handleDeleteItem}
           isAddAreaOpen={isAddAreaOpen}
         />
-              </div>
+      </div>
     </div>
   );
 }

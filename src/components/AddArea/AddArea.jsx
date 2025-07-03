@@ -1,46 +1,38 @@
-import React, { useState, useRef, useEffect } from 'react';
-import VoiceInput from './VoiceInput';
-import { saveIncome, saveCost, saveGoal } from '../../utils/firebase';
-import { capitalizeFirstLetter } from '../../utils/formatters';
-import { getCurrencySymbol } from '../../utils/currency';
+import React, { useState, useRef, useEffect } from "react";
+import VoiceInput from "./VoiceInput";
+import { capitalizeFirstLetter } from "../../utils/formatters";
+import { getCurrencySymbol } from "../../utils/currency";
 
-const AddArea = ({ 
+const AddArea = ({
   activeTab,
-  incomes,
-  setIncomes,
-  costs,
-  setCosts,
-  goals,
-  setGoals,
+  onAddIncome,
+  onAddCost,
+  onAddGoal,
   selectedCurrency,
-  user,
-  isOpen,
-  setIsOpen
+  onOpenChange,
 }) => {
-  const [isRecording, setIsRecording] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const areaRef = useRef(null);
-  
+
   // Local state for form inputs
-  const [incomeName, setIncomeName] = useState('');
-  const [incomeAmount, setIncomeAmount] = useState('');
-  const [incomePeriod, setIncomePeriod] = useState('monthly');
-  const [costName, setCostName] = useState('');
-  const [costAmount, setCostAmount] = useState('');
-  const [costPeriod, setCostPeriod] = useState('monthly');
-  const [goalName, setGoalName] = useState('');
-  const [goalPrice, setGoalPrice] = useState('');
-  const [dailyContribution, setDailyContribution] = useState('');
-  
-  const [addingIncome, setAddingIncome] = useState(false);
-  const [addingCost, setAddingCost] = useState(false);
-  const [addingGoal, setAddingGoal] = useState(false);
+  const [incomeName, setIncomeName] = useState("");
+  const [incomeAmount, setIncomeAmount] = useState("");
+  const [incomePeriod, setIncomePeriod] = useState("monthly");
+  const [costName, setCostName] = useState("");
+  const [costAmount, setCostAmount] = useState("");
+  const [costPeriod, setCostPeriod] = useState("monthly");
+  const [goalName, setGoalName] = useState("");
+  const [goalPrice, setGoalPrice] = useState("");
+  const [dailyContribution, setDailyContribution] = useState("");
+
+  const [isExternalIncome, setIsExternalIncome] = useState(true);
 
   const INCOME_PERIODS = [
     { value: "daily", label: "Daily" },
     { value: "weekly", label: "Weekly" },
     { value: "monthly", label: "Monthly" },
     { value: "yearly", label: "Yearly" },
-    { value: "one-off", label: "One-off" }
+    { value: "one-off", label: "One-off" },
   ];
 
   useEffect(() => {
@@ -49,117 +41,112 @@ const AddArea = ({
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
-  const handleAddIncome = async (data = null) => {
+  // Notify parent when open state changes
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
+
+  const handleAddIncome = (data = null) => {
     const itemData = data || {
       name: incomeName.trim(),
       amount: parseFloat(incomeAmount),
-      period: incomePeriod
+      period: incomePeriod,
     };
 
-    if (!itemData.name || !itemData.amount || isNaN(itemData.amount) || itemData.amount <= 0) return;
+    if (
+      !itemData.name ||
+      !itemData.amount ||
+      isNaN(itemData.amount) ||
+      itemData.amount <= 0
+    )
+      return;
 
-    setAddingIncome(true);
-    
-    try {
-      const newIncome = {
-        name: capitalizeFirstLetter(itemData.name),
-        amount: itemData.amount,
-        period: itemData.period,
-        userId: user?.uid
-      };
+    const newIncome = {
+      name: capitalizeFirstLetter(itemData.name),
+      amount: itemData.amount,
+      period: itemData.period,
+      isExternal: isExternalIncome,
+    };
 
-      const savedIncome = await saveIncome(newIncome);
-      setIncomes([...incomes, savedIncome]);
-      
-      // Reset form only if not from voice input
-      if (!data) {
-        setIncomeName('');
-        setIncomeAmount('');
-        setIncomePeriod('monthly');
-      }
-    } catch {
-      // Handle error silently
-    } finally {
-      setAddingIncome(false);
+    onAddIncome(newIncome);
+
+    // Reset form only if not from voice input
+    if (!data) {
+      setIncomeName("");
+      setIncomeAmount("");
+      setIncomePeriod("monthly");
     }
   };
 
-  const handleAddCost = async (data = null) => {
+  const handleAddCost = (data = null) => {
     const itemData = data || {
       name: costName.trim(),
       amount: parseFloat(costAmount),
-      period: costPeriod
+      period: costPeriod,
     };
 
-    if (!itemData.name || !itemData.amount || isNaN(itemData.amount) || itemData.amount <= 0) {
+    if (
+      !itemData.name ||
+      !itemData.amount ||
+      isNaN(itemData.amount) ||
+      itemData.amount <= 0
+    ) {
       return;
     }
 
-    setAddingCost(true);
-    
-    try {
-      const newCost = {
-        name: capitalizeFirstLetter(itemData.name),
-        amount: itemData.amount,
-        period: itemData.period,
-        userId: user?.uid
-      };
-      
-      const savedCost = await saveCost(newCost);
-      setCosts([...costs, savedCost]);
-      
-      // Reset form only if not from voice input
-      if (!data) {
-        setCostName('');
-        setCostAmount('');
-        setCostPeriod('monthly');
-      }
-    } catch {
-      // Handle error silently
-    } finally {
-      setAddingCost(false);
+    const newCost = {
+      name: capitalizeFirstLetter(itemData.name),
+      amount: itemData.amount,
+      period: itemData.period,
+    };
+
+    onAddCost(newCost);
+
+    // Reset form only if not from voice input
+    if (!data) {
+      setCostName("");
+      setCostAmount("");
+      setCostPeriod("monthly");
     }
   };
 
-  const handleAddGoal = async (data = null) => {
+  const handleAddGoal = (data = null) => {
     const itemData = data || {
       name: goalName.trim(),
       price: parseFloat(goalPrice),
-      dailyContribution: parseFloat(dailyContribution)
+      dailyContribution: parseFloat(dailyContribution),
     };
 
-    if (!itemData.name || !itemData.price || isNaN(itemData.price) || itemData.price <= 0 || 
-        !itemData.dailyContribution || isNaN(itemData.dailyContribution) || itemData.dailyContribution <= 0) return;
+    if (
+      !itemData.name ||
+      !itemData.price ||
+      isNaN(itemData.price) ||
+      itemData.price <= 0 ||
+      !itemData.dailyContribution ||
+      isNaN(itemData.dailyContribution) ||
+      itemData.dailyContribution <= 0
+    )
+      return;
 
-    setAddingGoal(true);
-    
-    try {
-      const newGoal = {
-        name: capitalizeFirstLetter(itemData.name),
-        price: itemData.price,
-        dailyContribution: itemData.dailyContribution,
-        userId: user?.uid
-      };
+    const newGoal = {
+      name: capitalizeFirstLetter(itemData.name),
+      price: itemData.price,
+      dailyContribution: itemData.dailyContribution,
+    };
 
-      const savedGoal = await saveGoal(newGoal);
-      setGoals([...goals, savedGoal]);
-      
-      // Reset form only if not from voice input
-      if (!data) {
-        setGoalName('');
-        setGoalPrice('');
-        setDailyContribution('');
-      }
-    } catch {
-      // Handle error silently
-    } finally {
-      setAddingGoal(false);
+    onAddGoal(newGoal);
+
+    // Reset form only if not from voice input
+    if (!data) {
+      setGoalName("");
+      setGoalPrice("");
+      setDailyContribution("");
     }
   };
 
@@ -177,145 +164,96 @@ const AddArea = ({
 
   const getTabConfig = () => {
     const currencySymbol = getCurrencySymbol(selectedCurrency);
-    
+
     switch (activeTab) {
-      case 'income':
+      case "income":
         return {
-          title: 'Add Income',
+          title: "Add Income",
           fields: [
-            { 
-              type: 'text', 
-              placeholder: 'Income name', 
-              value: incomeName, 
+            {
+              type: "text",
+              placeholder: "Income name",
+              value: incomeName,
               onChange: (e) => setIncomeName(e.target.value),
-              key: 'name'
+              key: "name",
             },
-            { 
-              type: 'number', 
-              placeholder: `Amount (${currencySymbol})`, 
-              value: incomeAmount, 
+            {
+              type: "number",
+              placeholder: `Amount (${currencySymbol})`,
+              value: incomeAmount,
               onChange: (e) => setIncomeAmount(e.target.value),
-              key: 'amount'
+              key: "amount",
             },
-            { 
-              type: 'select', 
-              value: incomePeriod, 
+            {
+              type: "select",
+              value: incomePeriod,
               onChange: (e) => setIncomePeriod(e.target.value),
               options: INCOME_PERIODS,
-              key: 'period'
-            }
+              key: "period",
+            },
           ],
           onSubmit: handleAddIncome,
-          isSubmitting: addingIncome
         };
-      case 'expenses':
+      case "expenses":
         return {
-          title: 'Add Expense',
+          title: "Add Expense",
           fields: [
-            { 
-              type: 'text', 
-              placeholder: 'Expense name', 
-              value: costName, 
+            {
+              type: "text",
+              placeholder: "Expense name",
+              value: costName,
               onChange: (e) => setCostName(e.target.value),
-              key: 'name'
+              key: "name",
             },
-            { 
-              type: 'number', 
-              placeholder: `Amount (${currencySymbol})`, 
-              value: costAmount, 
+            {
+              type: "number",
+              placeholder: `Amount (${currencySymbol})`,
+              value: costAmount,
               onChange: (e) => setCostAmount(e.target.value),
-              key: 'amount'
+              key: "amount",
             },
-            { 
-              type: 'select', 
-              value: costPeriod, 
+            {
+              type: "select",
+              value: costPeriod,
               onChange: (e) => setCostPeriod(e.target.value),
-              options: INCOME_PERIODS.filter(p => p.value !== 'money-in-bank' && p.value !== 'spend-limit'),
-              key: 'period'
-            }
+              options: INCOME_PERIODS.filter(
+                (p) => p.value !== "money-in-bank" && p.value !== "spend-limit"
+              ),
+              key: "period",
+            },
           ],
           onSubmit: handleAddCost,
-          isSubmitting: addingCost
         };
-      case 'goals':
+      case "goals":
         return {
-          title: 'Add Goal',
+          title: "Add Goal",
           fields: [
-            { 
-              type: 'text', 
-              placeholder: 'Goal name', 
-              value: goalName, 
+            {
+              type: "text",
+              placeholder: "Goal name",
+              value: goalName,
               onChange: (e) => setGoalName(e.target.value),
-              key: 'name'
+              key: "name",
             },
-            { 
-              type: 'number', 
-              placeholder: `Goal price (${currencySymbol})`, 
-              value: goalPrice, 
+            {
+              type: "number",
+              placeholder: `Goal price (${currencySymbol})`,
+              value: goalPrice,
               onChange: (e) => setGoalPrice(e.target.value),
-              key: 'price'
+              key: "price",
             },
-            { 
-              type: 'number', 
-              placeholder: `Daily contribution (${currencySymbol})`, 
-              value: dailyContribution, 
+            {
+              type: "number",
+              placeholder: `Daily contribution (${currencySymbol})`,
+              value: dailyContribution,
               onChange: (e) => setDailyContribution(e.target.value),
-              key: 'dailyContribution'
-            }
+              key: "dailyContribution",
+            },
           ],
           onSubmit: handleAddGoal,
-          isSubmitting: addingGoal
         };
       default:
         return null;
-    }
-  };
-
-
-
-  const handleDataExtracted = async (extractedData) => {
-    // Validate the extracted data
-    if (!extractedData || typeof extractedData !== 'object') {
-      return;
-    }
-
-    try {
-      if (activeTab === 'income') {
-        const { name, amount, period } = extractedData;
-        
-        if (name && amount && period) {
-          const incomeData = {
-            name: name.trim(),
-            amount: parseFloat(amount),
-            period: period
-          };
-          await handleAddIncome(incomeData);
-        }
-      } else if (activeTab === 'expenses') {
-        const { name, amount, period } = extractedData;
-        
-        if (name && amount && period) {
-          const costData = {
-            name: name.trim(),
-            amount: parseFloat(amount),
-            period: period
-          };
-          await handleAddCost(costData);
-        }
-      } else if (activeTab === 'goals') {
-        const { name, price, dailyContribution } = extractedData;
-        
-        if (name && price && dailyContribution) {
-          const goalData = {
-            name: name.trim(),
-            price: parseFloat(price),
-            dailyContribution: parseFloat(dailyContribution)
-          };
-          await handleAddGoal(goalData);
-        }
-      }
-    } catch {
-      // Handle error silently
     }
   };
 
@@ -323,57 +261,88 @@ const AddArea = ({
   if (!config) return null;
 
   return (
-    <div
-      ref={areaRef}
-      className="p-3 border rounded mb-2"
-    >
-      <div 
+    <div ref={areaRef} className="p-3 border rounded mb-2">
+      <div
         className="flex items-center justify-between w-full cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}
       >
         <h2 className="text-xl font-semibold select-none flex items-center gap-2">
           {config.title}
-          <svg 
-            className={`w-5 h-5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          <svg
+            className={`w-5 h-5 transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
           </svg>
         </h2>
         <div className="flex items-center gap-2">
-          <span onClick={e => e.stopPropagation()}>
-                        <VoiceInput 
-              onTranscript={() => {}} // Placeholder for transcript callback
-              isRecording={isRecording}
-              setIsRecording={setIsRecording}
+          {activeTab === "income" && (
+            <span
+              onClick={(e) => e.stopPropagation()}
+              className="relative group"
+            >
+              <button
+                onClick={() => setIsExternalIncome(!isExternalIncome)}
+                className={`w-10 h-5 rounded-full border-2 transition-colors duration-200 ${
+                  isExternalIncome
+                    ? "bg-green-500 border-green-500"
+                    : "bg-gray-300 border-gray-300"
+                }`}
+              >
+                <div
+                  className={`w-3 h-3 bg-white rounded-full transition-transform duration-200 ${
+                    isExternalIncome ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+              {/* Custom hover tooltip */}
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                {isExternalIncome ? "External income" : "Business draw"}
+              </div>
+            </span>
+          )}
+          <span onClick={(e) => e.stopPropagation()}>
+            <VoiceInput
               activeTab={activeTab}
-              onDataExtracted={handleDataExtracted}
+              onAddIncome={onAddIncome}
+              onAddCost={onAddCost}
+              onAddGoal={onAddGoal}
               selectedCurrency={selectedCurrency}
             />
           </span>
         </div>
       </div>
       {isOpen && (
-        <div className="mt-4 cursor-default" onClick={e => e.stopPropagation()}>
+        <div
+          className="mt-4 cursor-default"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-3">
             {config.fields.map((field, index) => (
               <div key={index} className="relative">
-                {field.type === 'select' ? (
-                  <select 
-                    value={field.value} 
+                {field.type === "select" ? (
+                  <select
+                    value={field.value}
                     onChange={field.onChange}
                     className="border border-gray-300 rounded px-3 py-2 text-base w-full"
                   >
-                    {field.options.map(option => (
+                    {field.options.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  <input 
+                  <input
                     type={field.type}
                     placeholder={field.placeholder}
                     value={field.value}
@@ -385,21 +354,16 @@ const AddArea = ({
               </div>
             ))}
             <div className="flex gap-2">
-              <button 
-                onClick={e => { e.stopPropagation(); config.onSubmit(); }} 
-                disabled={config.isSubmitting}
-                className={`px-3 py-2 text-white rounded text-base w-full ${
-                  config.isSubmitting 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-500 hover:bg-blue-600'
-                }`}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  config.onSubmit();
+                }}
+                className="px-3 py-2 text-white rounded text-base w-full bg-blue-500 hover:bg-blue-600"
               >
-                {config.isSubmitting ? 'Adding...' : 'Add'}
+                Add
               </button>
             </div>
-          </div>
-          <div className="text-xs text-gray-500">
-            💡 Voice input example: "{activeTab === 'income' ? 'salary 50000 monthly' : activeTab === 'expenses' ? 'rent 15000 monthly' : 'new phone 25000 100 daily'}"
           </div>
         </div>
       )}
@@ -407,4 +371,4 @@ const AddArea = ({
   );
 };
 
-export default AddArea; 
+export default AddArea;
