@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useSpring, animated } from "@react-spring/web";
 import EditableCard from "./EditableCard";
 import { capitalizeFirstLetter } from "../../utils/formatters";
@@ -39,9 +39,6 @@ const ItemsList = ({
   // Visual indicator states and refs
   const [hasMoneyInBank, setHasMoneyInBank] = useState(false);
   const [hasSpendLimit, setHasSpendLimit] = useState(false);
-  const [dotPosition, setDotPosition] = useState({ x: 0, y: 0 });
-  const moneyInputRef = useRef(null);
-  const spendInputRef = useRef(null);
 
   // React Spring animation for bouncing dot
   const bounceAnimation = useSpring({
@@ -78,31 +75,6 @@ const ItemsList = ({
       spendLimit && !isNaN(parseFloat(spendLimit)) && parseFloat(spendLimit) > 0
     );
   }, [moneyInBank, spendLimit]);
-
-  // Track input positions for visual indicators
-  useLayoutEffect(() => {
-    const updatePosition = () => {
-      const activeInput =
-        activeTab === "goals" ? spendInputRef.current : moneyInputRef.current;
-      if (activeInput) {
-        const rect = activeInput.getBoundingClientRect();
-
-        setDotPosition({
-          x: rect.left - 6,
-          y: rect.top + rect.height / 1.2,
-        });
-      }
-    };
-
-    updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition);
-
-    return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition);
-    };
-  }, [activeTab, moneyInBank, spendLimit]);
 
   const handleEdit = (item) => {
     setEditingItem(item.id);
@@ -408,11 +380,21 @@ const ItemsList = ({
         {/* Title and Special Unit Line */}
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-700">{title}</h2>
-
           {activeTab === "income" || activeTab === "expenses" ? (
             <div className="flex items-center gap-1 relative">
+              {((activeTab === "income" || activeTab === "expenses") && !hasMoneyInBank) && (
+                <animated.div
+                  className="w-2 h-2 bg-red-500 rounded-full z-10 absolute"
+                  style={{
+                    left: -12,
+                    top: '50%',
+                    transform: bounceAnimation.y.to(
+                      (y) => `translateY(calc(-50% + ${y}px))`
+                    ),
+                  }}
+                />
+              )}
               <input
-                ref={moneyInputRef}
                 type="number"
                 placeholder="Available funds"
                 value={moneyInBank}
@@ -423,8 +405,19 @@ const ItemsList = ({
             </div>
           ) : activeTab === "goals" ? (
             <div className="flex items-center gap-1 relative">
+              {(activeTab === "goals" && !hasSpendLimit) && (
+                <animated.div
+                  className="w-2 h-2 bg-red-500 rounded-full z-10 absolute"
+                  style={{
+                    left: -12,
+                    top: '50%',
+                    transform: bounceAnimation.y.to(
+                      (y) => `translateY(calc(-50% + ${y}px))`
+                    ),
+                  }}
+                />
+              )}
               <input
-                ref={spendInputRef}
                 type="number"
                 placeholder="Monthly limit"
                 value={spendLimit}
@@ -453,24 +446,6 @@ const ItemsList = ({
           </div>
         )}
       </div>
-
-      {/* Visual Indicator - Bouncing Red Dot */}
-      {activeTab !== "report" &&
-      !isAddAreaOpen &&
-      (((activeTab === "income" || activeTab === "expenses") &&
-        !hasMoneyInBank) ||
-        (activeTab === "goals" && !hasSpendLimit)) ? (
-        <animated.div
-          className="fixed w-1.5 h-1.5 bg-red-500 rounded-full z-10"
-          style={{
-            left: `${dotPosition.x}px`,
-            top: `${dotPosition.y}px`,
-            transform: bounceAnimation.y.to(
-              (y) => `translate(-50%, calc(-50% + ${y}px))`
-            ),
-          }}
-        />
-      ) : null}
 
       <div className="grid gap-2">
         {items.length === 0 ? (
