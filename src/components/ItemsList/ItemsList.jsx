@@ -374,7 +374,7 @@ const ItemsList = ({
   const { title, items, showSort } = getDisplayData();
 
   return (
-    <div className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md mb-2 flex-1">
+    <div className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md flex-1">
       {/* Header Section */}
       <div className="flex flex-col mb-4">
         {/* Title and Special Unit Line */}

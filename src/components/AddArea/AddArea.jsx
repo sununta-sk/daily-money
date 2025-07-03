@@ -261,7 +261,7 @@ const AddArea = ({
   if (!config) return null;
 
   return (
-    <div ref={areaRef} className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md mb-2">
+    <div ref={areaRef} className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md">
       <div
         className="flex items-center justify-between w-full cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}

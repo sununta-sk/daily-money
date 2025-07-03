@@ -211,15 +211,14 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen w-full 
-    bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 flex flex-col md:p-4 p-3">
-      <div className="flex flex-col flex-1">
+    <div className="min-h-screen w-full bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 flex flex-col">
+      <div className="flex flex-col flex-1 gap-3 md:gap-4">
         <Navbar
           user={user}
           onTabChange={setActiveTab}
           onCurrencyChange={setSelectedCurrency}
         />
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 overflow-y-auto">
           {activeTab !== 'report' && (
             <AddArea
             activeTab={activeTab}

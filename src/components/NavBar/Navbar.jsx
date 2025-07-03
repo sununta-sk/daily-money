@@ -32,7 +32,7 @@ const Navbar = ({ onTabChange, onCurrencyChange, user }) => {
   };
 
   return (
-    <nav className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md mb-2 flex items-center justify-between">
+    <nav className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md flex items-center justify-between">
       <div className="flex items-center gap-2">
         <WhaleLogo className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full shadow" />
         {/* Mobile: Dropdown select */}
