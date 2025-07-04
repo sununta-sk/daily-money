@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import VoiceInput from "./VoiceInput";
 import { capitalizeFirstLetter } from "../../utils/formatters";
 import { getCurrencySymbol } from "../../utils/currency";
+import SwitchToggle from "../SwitchToggle";
 
 const AddArea = ({
   activeTab,
@@ -261,7 +262,10 @@ const AddArea = ({
   if (!config) return null;
 
   return (
-    <div ref={areaRef} className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md">
+    <div
+      ref={areaRef}
+      className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md"
+    >
       <div
         className="flex items-center justify-between w-full cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}
@@ -286,28 +290,15 @@ const AddArea = ({
         </h2>
         <div className="flex items-center gap-2">
           {activeTab === "income" && (
-            <span
-              onClick={(e) => e.stopPropagation()}
-              className="relative group"
-            >
-              <button
-                onClick={() => setIsExternalIncome(!isExternalIncome)}
-                className={`w-10 h-5 rounded-full border-2 transition-colors duration-200 shadow-md ${
-                  isExternalIncome
-                    ? "bg-gradient-to-r from-green-400 to-blue-400 border-green-400"
-                    : "bg-gray-300 border-gray-300"
-                }`}
-              >
-                <div
-                  className={`w-3 h-3 bg-white rounded-full transition-transform duration-200 shadow-md ${
-                    isExternalIncome ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-              {/* Custom hover tooltip */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                {isExternalIncome ? "External income" : "Business draw"}
-              </div>
+            <span onClick={(e) => e.stopPropagation()}>
+              <SwitchToggle
+                value={isExternalIncome}
+                onChange={setIsExternalIncome}
+                trueLabel="External"
+                falseLabel="Internal"
+                colorA="from-green-400"
+                colorB="to-blue-400"
+              />
             </span>
           )}
           <span onClick={(e) => e.stopPropagation()}>

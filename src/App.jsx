@@ -16,6 +16,8 @@ import {
   saveIncome,
   saveCost,
   saveGoal,
+  getUserSettings,
+  saveUserSettings,
 } from "./utils/database";
 import { fetchExchangeRates } from "./utils/currency";
 import { capitalizeFirstLetter } from "./utils/formatters";
@@ -33,7 +35,7 @@ function App() {
   const [moneyInBank, setMoneyInBank] = useState("");
   const [spendLimit, setSpendLimit] = useState("");
   const [sortOrder, setSortOrder] = useState("newest");
-  const [isAddAreaOpen, setIsAddAreaOpen] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // CRUD operations
   const handleUpdateItem = async (id, updatedData) => {
@@ -103,8 +105,9 @@ function App() {
   // Add item callbacks
   const handleAddIncome = async (incomeData) => {
     try {
+      const timestamp = new Date();
       const newIncome = { ...incomeData, userId: user?.uid };
-      const savedIncome = await saveIncome(newIncome);
+      const savedIncome = await saveIncome(newIncome, timestamp);
       setIncomes([...incomes, savedIncome]);
     } catch {
       // Handle error silently
@@ -113,8 +116,9 @@ function App() {
 
   const handleAddCost = async (costData) => {
     try {
+      const timestamp = new Date();
       const newCost = { ...costData, userId: user?.uid };
-      const savedCost = await saveCost(newCost);
+      const savedCost = await saveCost(newCost, timestamp);
       setCosts([...costs, savedCost]);
     } catch {
       // Handle error silently
@@ -123,8 +127,9 @@ function App() {
 
   const handleAddGoal = async (goalData) => {
     try {
+      const timestamp = new Date();
       const newGoal = { ...goalData, userId: user?.uid };
-      const savedGoal = await saveGoal(newGoal);
+      const savedGoal = await saveGoal(newGoal, timestamp);
       setGoals([...goals, savedGoal]);
     } catch {
       // Handle error silently
@@ -138,12 +143,98 @@ function App() {
 
       if (user) {
         loadUserData(user.uid);
+        loadUserSettings(user.uid);
         fetchExchangeRates();
       }
     });
 
     return unsubscribe;
   }, []);
+
+  // Load user settings from database
+  const loadUserSettings = async (userId) => {
+    try {
+      const settings = await getUserSettings(userId);
+      console.log("Loaded settings:", settings);
+      setMoneyInBank(settings.moneyInBank);
+      setSpendLimit(settings.spendLimit);
+      setActiveTab(settings.lastTab);
+      setSettingsLoaded(true);
+    } catch (error) {
+      console.error("Error loading user settings:", error);
+      setSettingsLoaded(true);
+    }
+  };
+
+  // Save available funds to database
+  const saveMoneyInBank = async (newMoneyInBank) => {
+    if (user?.uid) {
+      try {
+        console.log("Saving moneyInBank:", newMoneyInBank);
+
+        // Get current settings first to avoid overwriting other fields
+        const currentSettings = await getUserSettings(user.uid);
+
+        await saveUserSettings(
+          {
+            ...currentSettings,
+            moneyInBank: newMoneyInBank,
+          },
+          user.uid
+        );
+        console.log("MoneyInBank saved successfully");
+      } catch (error) {
+        console.error("Error saving moneyInBank:", error);
+      }
+    }
+  };
+
+  // Save spend limit to database
+  const saveSpendLimit = async (newSpendLimit) => {
+    if (user?.uid) {
+      try {
+        console.log("Saving spendLimit:", newSpendLimit);
+
+        // Get current settings first to avoid overwriting other fields
+        const currentSettings = await getUserSettings(user.uid);
+
+        await saveUserSettings(
+          {
+            ...currentSettings,
+            spendLimit: newSpendLimit,
+          },
+          user.uid
+        );
+        console.log("SpendLimit saved successfully");
+      } catch (error) {
+        console.error("Error saving spendLimit:", error);
+      }
+    }
+  };
+
+  // Save lastTab to database when it changes
+  useEffect(() => {
+    const saveLastTab = async () => {
+      if (user?.uid && activeTab) {
+        try {
+          // Get current settings first to avoid overwriting other fields
+          const currentSettings = await getUserSettings(user.uid);
+
+          await saveUserSettings(
+            {
+              ...currentSettings,
+              lastTab: activeTab,
+            },
+            user.uid
+          );
+        } catch (error) {
+          console.error("Error saving last tab:", error);
+        }
+      }
+    };
+
+    saveLastTab();
+  }, [activeTab, user?.uid]);
 
   const loadUserData = async (userId) => {
     try {
@@ -156,7 +247,7 @@ function App() {
     }
   };
 
-  if (loading) {
+  if (loading || !settingsLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
@@ -211,41 +302,40 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 flex flex-col">
-      <div className="flex flex-col flex-1 gap-3 md:gap-4">
+    <div className="h-screen w-full bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 p-3 md:p-4">
+      <div className="flex flex-col h-full gap-2">
         <Navbar
           user={user}
           onTabChange={setActiveTab}
           onCurrencyChange={setSelectedCurrency}
+          lastTab={activeTab}
         />
-        <div className="flex flex-col flex-1 overflow-y-auto">
-          {activeTab !== 'report' && (
-            <AddArea
+        {activeTab !== "report" && (
+          <AddArea
             activeTab={activeTab}
             onAddIncome={handleAddIncome}
             onAddCost={handleAddCost}
             onAddGoal={handleAddGoal}
             selectedCurrency={selectedCurrency}
-            onOpenChange={setIsAddAreaOpen}
-            />
-          )}
-          <ItemsList
-            activeTab={activeTab}
-            incomes={incomes}
-            costs={costs}
-            goals={goals}
-            moneyInBank={moneyInBank}
-            setMoneyInBank={setMoneyInBank}
-            spendLimit={spendLimit}
-            setSpendLimit={setSpendLimit}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
-            selectedCurrency={selectedCurrency}
-            onUpdateItem={handleUpdateItem}
-            onDeleteItem={handleDeleteItem}
-            isAddAreaOpen={isAddAreaOpen}
           />
-        </div>
+        )}
+        <ItemsList
+          activeTab={activeTab}
+          incomes={incomes}
+          costs={costs}
+          goals={goals}
+          moneyInBank={moneyInBank}
+          setMoneyInBank={setMoneyInBank}
+          spendLimit={spendLimit}
+          setSpendLimit={setSpendLimit}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+          selectedCurrency={selectedCurrency}
+          onUpdateItem={handleUpdateItem}
+          onDeleteItem={handleDeleteItem}
+          onSaveMoneyInBank={saveMoneyInBank}
+          onSaveSpendLimit={saveSpendLimit}
+        />
       </div>
     </div>
   );

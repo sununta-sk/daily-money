@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { useSpring, animated } from "@react-spring/web";
+import React, { useState, useEffect, useRef } from "react";
 import EditableCard from "./EditableCard";
-import { capitalizeFirstLetter } from "../../utils/formatters";
+import { capitalizeFirstLetter, formatDate } from "../../utils/formatters";
 import { formatCurrency } from "../../utils/currency";
 import {
   calculateTotalMoney,
@@ -11,6 +10,7 @@ import {
   calculateHowLongYouCanLive,
   getSortedItems,
 } from "../../utils/calculations";
+import SwitchToggle from "../SwitchToggle";
 
 const ItemsList = ({
   activeTab,
@@ -26,7 +26,8 @@ const ItemsList = ({
   selectedCurrency,
   onUpdateItem,
   onDeleteItem,
-  isAddAreaOpen,
+  onSaveMoneyInBank,
+  onSaveSpendLimit,
 }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [editName, setEditName] = useState("");
@@ -35,34 +36,29 @@ const ItemsList = ({
   const [editPrice, setEditPrice] = useState("");
   const [editContribution, setEditContribution] = useState("");
   const [editIsExternal, setEditIsExternal] = useState(true);
+  const [localMoneyInBank, setLocalMoneyInBank] = useState(moneyInBank);
+  const [localSpendLimit, setLocalSpendLimit] = useState(spendLimit);
+  const [focusTarget, setFocusTarget] = useState("name"); // Track which element to focus
+
+  // Sync local state with props
+  useEffect(() => {
+    setLocalMoneyInBank(moneyInBank);
+  }, [moneyInBank]);
+
+  useEffect(() => {
+    setLocalSpendLimit(spendLimit);
+  }, [spendLimit]);
 
   // Visual indicator states and refs
   const [hasMoneyInBank, setHasMoneyInBank] = useState(false);
   const [hasSpendLimit, setHasSpendLimit] = useState(false);
 
-  // React Spring animation for bouncing dot
-  const bounceAnimation = useSpring({
-    to: async (next) => {
-      while (true) {
-        await next({ y: 0, config: { tension: 200, friction: 25, mass: 0.8 } });
-        await next({
-          y: -2,
-          config: { tension: 300, friction: 12, mass: 0.8 },
-        });
-        await next({
-          y: 0.5,
-          config: { tension: 250, friction: 20, mass: 0.8 },
-        });
-        await next({ y: 0, config: { tension: 180, friction: 22, mass: 0.8 } });
-        await next({
-          y: -1,
-          config: { tension: 220, friction: 18, mass: 0.8 },
-        });
-        await next({ y: 0, config: { tension: 160, friction: 25, mass: 0.8 } });
-      }
-    },
-    from: { y: 0 },
-  });
+  // Refs for focus management
+  const nameInputRef = useRef(null);
+  const amountInputRef = useRef(null);
+  const periodSelectRef = useRef(null);
+  const priceInputRef = useRef(null);
+  const contributionInputRef = useRef(null);
 
   // Update validation states when values change
   useEffect(() => {
@@ -76,7 +72,41 @@ const ItemsList = ({
     );
   }, [moneyInBank, spendLimit]);
 
-  const handleEdit = (item) => {
+  // Focus effect when entering edit mode
+  useEffect(() => {
+    if (editingItem && focusTarget) {
+      setTimeout(() => {
+        switch (focusTarget) {
+          case "name":
+            nameInputRef.current?.focus();
+            break;
+          case "amount":
+            amountInputRef.current?.focus();
+            break;
+          case "period":
+            periodSelectRef.current?.focus();
+            break;
+          case "price":
+            priceInputRef.current?.focus();
+            break;
+          case "contribution":
+            contributionInputRef.current?.focus();
+            break;
+          default:
+            nameInputRef.current?.focus();
+        }
+      }, 100);
+    }
+  }, [editingItem, focusTarget]);
+
+  const handleEdit = (item, focusElement = "name") => {
+    // If already editing this item, save and close
+    if (editingItem === item.id) {
+      handleSave();
+      return;
+    }
+
+    // Otherwise, start editing
     setEditingItem(item.id);
     setEditName(item.name || "");
     setEditAmount(item.amount?.toString() || item.price?.toString() || "");
@@ -84,6 +114,7 @@ const ItemsList = ({
     setEditPrice(item.price?.toString() || "");
     setEditContribution(item.dailyContribution?.toString() || "");
     setEditIsExternal(item.isExternal !== false); // Default to true if undefined
+    setFocusTarget(focusElement);
   };
 
   const handleSave = async () => {
@@ -125,94 +156,9 @@ const ItemsList = ({
     }
   };
 
-  const renderEditForm = () => {
-    if (activeTab === "goals") {
-      return (
-        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          <input
-            placeholder="Goal name"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            className="border border-gray-300 rounded px-3 py-2 text-base"
-          />
-          <input
-            type="number"
-            step="any"
-            placeholder="Price"
-            value={editPrice}
-            onChange={(e) => setEditPrice(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            className="border border-gray-300 rounded px-3 py-2 text-base"
-          />
-          <input
-            type="number"
-            step="any"
-            placeholder="Daily contribution"
-            value={editContribution}
-            onChange={(e) => setEditContribution(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            className="border border-gray-300 rounded px-3 py-2 text-base"
-          />
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex flex-col">
-        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          <input
-            placeholder={
-              activeTab === "income" ? "Income name" : "Expense name"
-            }
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            className="border border-gray-300 rounded px-3 py-2 text-base"
-          />
-          <input
-            type="number"
-            step="any"
-            placeholder="Amount"
-            value={editAmount}
-            onChange={(e) => setEditAmount(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            className="border border-gray-300 rounded px-3 py-2 text-base"
-          />
-          <select
-            value={editPeriod}
-            onChange={(e) => setEditPeriod(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            className="border border-gray-300 rounded px-3 py-2 text-base"
-          >
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-            <option value="yearly">Yearly</option>
-            <option value="one-off">One-off</option>
-          </select>
-        </div>
-        {activeTab === "income" && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Source:</span>
-            <button
-              onClick={() => setEditIsExternal(!editIsExternal)}
-              className={`px-3 py-1 rounded text-sm border transition-colors ${
-                editIsExternal
-                  ? "bg-green-500 text-white border-green-500"
-                  : "bg-orange-500 text-white border-orange-500"
-              }`}
-            >
-              {editIsExternal ? "External" : "Internal"}
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const renderDisplayContent = (item) => {
     if (activeTab === "goals") {
+      const isEditingThisItem = editingItem === item.id;
       const price = item.price || 0;
       const dailyContribution = item.dailyContribution || 0;
       const days =
@@ -224,28 +170,94 @@ const ItemsList = ({
       }
 
       return (
-        <div className="flex flex-col">
-          <span className="font-medium text-base mb-2 text-gray-700">
-            {capitalizeFirstLetter(item.name || "Unnamed Goal")}
-          </span>
-          <div className="flex justify-between items-center">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <span className="text-gray-600 text-sm">
-                Price: {formatCurrency(price, selectedCurrency)}
+        <div className="flex flex-row justify-between items-stretch gap-2">
+          {/* Left column: title (top), price (middle), target (bottom) */}
+          <div className="flex flex-col justify-between flex-1">
+            {isEditingThisItem ? (
+              <input
+                ref={nameInputRef}
+                placeholder="Goal name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="font-medium text-base text-gray-700 bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
+              />
+            ) : (
+              <span
+                className="font-medium text-base text-gray-700 cursor-pointer hover:text-gray-900"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(item, "name");
+                }}
+              >
+                {capitalizeFirstLetter(item.name || "Unnamed Goal")}
               </span>
-              <span className="text-gray-600 text-sm">
-                Daily: {formatCurrency(dailyContribution, selectedCurrency)}
+            )}
+            {isEditingThisItem ? (
+              <input
+                ref={priceInputRef}
+                type="number"
+                step="any"
+                placeholder="Price"
+                value={editPrice}
+                onChange={(e) => setEditPrice(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="font-medium text-base bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
+              />
+            ) : (
+              <span
+                className="font-medium text-base cursor-pointer hover:text-gray-900"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(item, "price");
+                }}
+              >
+                {formatCurrency(price, selectedCurrency)}
               </span>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <span className="text-green-600 text-sm">
-                Target:{" "}
-                {days === Infinity ? "Never" : targetDate.toLocaleDateString()}
+            )}
+            <span className="text-green-600 text-sm">
+              Target:{" "}
+              {days === Infinity ? "Never" : targetDate.toLocaleDateString()}
+            </span>
+          </div>
+          {/* Right column: daily contribution (top), days (middle), delete (bottom) */}
+          <div className="flex flex-col items-end justify-between min-w-[110px]">
+            {isEditingThisItem ? (
+              <input
+                ref={contributionInputRef}
+                type="number"
+                step="any"
+                placeholder="Daily contribution"
+                value={editContribution}
+                onChange={(e) => setEditContribution(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs text-gray-500 bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
+              />
+            ) : (
+              <span
+                className="text-xs text-gray-500 cursor-pointer hover:text-gray-700"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(item, "contribution");
+                }}
+              >
+                {formatCurrency(dailyContribution, selectedCurrency)}
               </span>
-              <span className="text-gray-500 text-sm">
-                ({days === Infinity ? "∞" : days} days)
-              </span>
-            </div>
+            )}
+            <span className="text-gray-500 text-sm">
+              ({days === Infinity ? "∞" : days} days)
+            </span>
+            {isEditingThisItem && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(item.id);
+                }}
+                className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
+              >
+                Delete
+              </button>
+            )}
           </div>
         </div>
       );
@@ -269,14 +281,217 @@ const ItemsList = ({
       );
     }
 
+    // Special layout for income items with SwitchToggle
+    if (activeTab === "income") {
+      const isEditingThisItem = editingItem === item.id;
+
+      return (
+        <div className="flex flex-row justify-between items-stretch gap-2">
+          {/* Left column: title (top), amount (middle), timestamp (bottom) */}
+          <div className="flex flex-col justify-between flex-1">
+            {isEditingThisItem ? (
+              <input
+                ref={nameInputRef}
+                placeholder="Income name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="font-medium text-base text-gray-700 bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
+              />
+            ) : (
+              <span
+                className="font-medium text-base text-gray-700 cursor-pointer hover:text-gray-900"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(item, "name");
+                }}
+              >
+                {capitalizeFirstLetter(item.name)}
+              </span>
+            )}
+            {isEditingThisItem ? (
+              <input
+                ref={amountInputRef}
+                type="number"
+                step="any"
+                placeholder="Amount"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="font-medium text-base bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
+              />
+            ) : (
+              <span
+                className="font-medium text-base cursor-pointer hover:text-gray-900"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(item, "amount");
+                }}
+              >
+                {formatCurrency(item.amount, selectedCurrency)}
+              </span>
+            )}
+            {item.timestamp && (
+              <span className="text-xs text-gray-400">
+                {formatDate(item.timestamp)}
+              </span>
+            )}
+          </div>
+          {/* Right column: switch (top), period (middle), delete (bottom) */}
+          <div className="flex flex-col items-end justify-between min-w-[110px]">
+            <div onClick={(e) => e.stopPropagation()}>
+              <SwitchToggle
+                value={isEditingThisItem ? editIsExternal : !!item.isExternal}
+                onChange={(val) => {
+                  if (isEditingThisItem) {
+                    setEditIsExternal(val);
+                  } else {
+                    onUpdateItem(item.id, { isExternal: val });
+                    handleEdit(item);
+                  }
+                }}
+                trueLabel="External"
+                falseLabel="Internal"
+                colorA="from-green-400"
+                colorB="to-blue-400"
+              />
+            </div>
+            {isEditingThisItem ? (
+              <select
+                ref={periodSelectRef}
+                value={editPeriod}
+                onChange={(e) => setEditPeriod(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs text-gray-500 bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+                <option value="one-off">One-off</option>
+              </select>
+            ) : (
+              <span
+                className="text-xs text-gray-500 cursor-pointer hover:text-gray-700"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(item, "period");
+                }}
+              >
+                {item.period}
+              </span>
+            )}
+            {isEditingThisItem && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(item.id);
+                }}
+                className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Default layout for expenses (similar to income but without switch)
+    const isEditingThisItem = editingItem === item.id;
+
     return (
-      <div className="flex justify-between items-center">
-        <span className="font-medium text-base text-gray-700">
-          {capitalizeFirstLetter(item.name)}
-        </span>
-        <span className="font-medium text-base">
-          {formatCurrency(item.amount, selectedCurrency)}
-        </span>
+      <div className="flex flex-row justify-between items-stretch gap-2">
+        {/* Left column: title (top), amount (middle), timestamp (bottom) */}
+        <div className="flex flex-col justify-between flex-1">
+          {isEditingThisItem ? (
+            <input
+              ref={nameInputRef}
+              placeholder="Expense name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="font-medium text-base text-gray-700 bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
+            />
+          ) : (
+            <span
+              className="font-medium text-base text-gray-700 cursor-pointer hover:text-gray-900"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(item, "name");
+              }}
+            >
+              {capitalizeFirstLetter(item.name)}
+            </span>
+          )}
+          {isEditingThisItem ? (
+            <input
+              ref={amountInputRef}
+              type="number"
+              step="any"
+              placeholder="Amount"
+              value={editAmount}
+              onChange={(e) => setEditAmount(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="font-medium text-base bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
+            />
+          ) : (
+            <span
+              className="font-medium text-base cursor-pointer hover:text-gray-900"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(item, "amount");
+              }}
+            >
+              {formatCurrency(item.amount, selectedCurrency)}
+            </span>
+          )}
+          {item.timestamp && (
+            <span className="text-xs text-gray-400">
+              {formatDate(item.timestamp)}
+            </span>
+          )}
+        </div>
+        {/* Right column: period (top), empty (middle), delete (bottom) */}
+        <div className="flex flex-col items-end justify-between min-w-[110px]">
+          {isEditingThisItem ? (
+            <select
+              ref={periodSelectRef}
+              value={editPeriod}
+              onChange={(e) => setEditPeriod(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs text-gray-500 bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+              <option value="one-off">One-off</option>
+            </select>
+          ) : (
+            <span
+              className="text-xs text-gray-500 cursor-pointer hover:text-gray-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(item, "period");
+              }}
+            >
+              {item.period}
+            </span>
+          )}
+          <div className="h-6"></div> {/* Empty space for balance */}
+          {isEditingThisItem && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(item.id);
+              }}
+              className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
+            >
+              Delete
+            </button>
+          )}
+        </div>
       </div>
     );
   };
@@ -374,64 +589,76 @@ const ItemsList = ({
   const { title, items, showSort } = getDisplayData();
 
   return (
-    <div className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md flex-1">
-      {/* Header Section */}
-      <div className="flex flex-col mb-4">
-        {/* Title and Special Unit Line */}
+    <div className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md flex-1 flex flex-col min-h-0">
+      {/* Header Section - Fixed */}
+      <div className="flex flex-col mb-4 flex-shrink-0">
+        {/* Title Line */}
+        <div className="flex justify-start mb-2">
+          <h2 className="text-xl font-semibold text-gray-700 drop-shadow-sm m-0">
+            {title}
+          </h2>
+        </div>
+
+        {/* Special Input and Sort Line */}
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-700 drop-shadow-sm">{title}</h2>
+          {/* Special Input - Left Side */}
           {activeTab === "income" || activeTab === "expenses" ? (
             <div className="flex items-center gap-1 relative">
-              {((activeTab === "income" || activeTab === "expenses") && !hasMoneyInBank) && (
-                <animated.div
-                  className="w-2 h-2 bg-red-500 rounded-full z-10 absolute"
-                  style={{
-                    left: -12,
-                    top: '50%',
-                    transform: bounceAnimation.y.to(
-                      (y) => `translateY(calc(-50% + ${y}px))`
-                    ),
-                  }}
-                />
-              )}
               <input
                 type="number"
                 placeholder="Available funds"
-                value={moneyInBank}
-                onChange={(e) => setMoneyInBank(e.target.value)}
+                value={localMoneyInBank}
+                onChange={(e) => setLocalMoneyInBank(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setMoneyInBank(localMoneyInBank);
+                    onSaveMoneyInBank(localMoneyInBank);
+                  }
+                }}
+                onBlur={() => {
+                  setMoneyInBank(localMoneyInBank);
+                  onSaveMoneyInBank(localMoneyInBank);
+                }}
                 title="Estimated amount you could access if needed"
-                className="border border-gray-300 rounded-lg px-2 py-1 text-xs w-32 bg-white/80 shadow"
+                className={`border rounded-lg px-2 py-1 text-xs w-32 bg-white/80 shadow ${
+                  (activeTab === "income" || activeTab === "expenses") &&
+                  !hasMoneyInBank
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
               />
             </div>
           ) : activeTab === "goals" ? (
             <div className="flex items-center gap-1 relative">
-              {(activeTab === "goals" && !hasSpendLimit) && (
-                <animated.div
-                  className="w-2 h-2 bg-red-500 rounded-full z-10 absolute"
-                  style={{
-                    left: -12,
-                    top: '50%',
-                    transform: bounceAnimation.y.to(
-                      (y) => `translateY(calc(-50% + ${y}px))`
-                    ),
-                  }}
-                />
-              )}
               <input
                 type="number"
                 placeholder="Monthly limit"
-                value={spendLimit}
-                onChange={(e) => setSpendLimit(e.target.value)}
+                value={localSpendLimit}
+                onChange={(e) => setLocalSpendLimit(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setSpendLimit(localSpendLimit);
+                    onSaveSpendLimit(localSpendLimit);
+                  }
+                }}
+                onBlur={() => {
+                  setSpendLimit(localSpendLimit);
+                  onSaveSpendLimit(localSpendLimit);
+                }}
                 title="Maximum amount you want to spend per month"
-                className="border border-gray-300 rounded-lg px-2 py-1 text-xs w-32 bg-white/80 shadow"
+                className={`border rounded-lg px-2 py-1 text-xs w-32 bg-white/80 shadow ${
+                  activeTab === "goals" && !hasSpendLimit
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
               />
             </div>
-          ) : null}
-        </div>
+          ) : (
+            <div></div>
+          )}
 
-        {/* Sort Line */}
-        {showSort && (
-          <div className="flex justify-end items-center mt-2">
+          {/* Sort - Right Side */}
+          {showSort && (
             <div className="flex items-center gap-1">
               <label className="text-xs font-medium text-gray-600">Sort:</label>
               <select
@@ -443,49 +670,44 @@ const ItemsList = ({
                 <option value="oldest">Oldest</option>
               </select>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      <div className="grid gap-2">
-        {items.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            {activeTab === "goals"
-              ? "No goals yet. Add your first goal above!"
-              : activeTab === "income"
-              ? "No income sources yet. Add your first income above!"
-              : activeTab === "expenses"
-              ? "No expenses yet. Add your first expense above!"
-              : "No items to display"}
-          </div>
-        ) : (
-          items.map((item) => (
-            <div className="rounded-2xl bg-white/80 shadow-md p-3 flex flex-col" key={item.id}>
-              <EditableCard
-                isEditing={activeTab !== "report" && editingItem === item.id}
-                onEdit={
-                  activeTab !== "report" ? () => handleEdit(item) : undefined
-                }
-                onSave={handleSave}
-                onCancel={handleCancel}
-                onDelete={
-                  activeTab !== "report" ? () => handleDelete(item.id) : undefined
-                }
-                timestamp={item.timestamp}
-                period={
-                  activeTab === "income" || activeTab === "expenses"
-                    ? item.period
-                    : undefined
-                }
-                isExternal={activeTab === "income" ? item.isExternal : undefined}
-              >
-                {activeTab !== "report" && editingItem === item.id
-                  ? renderEditForm()
-                  : renderDisplayContent(item)}
-              </EditableCard>
+      {/* Items Container - Scrollable */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="grid gap-2">
+          {items.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              {activeTab === "goals"
+                ? "No goals yet. Add your first goal above!"
+                : activeTab === "income"
+                ? "No income sources yet. Add your first income above!"
+                : activeTab === "expenses"
+                ? "No expenses yet. Add your first expense above!"
+                : "No items to display"}
             </div>
-          ))
-        )}
+          ) : (
+            items.map((item) => (
+              <div
+                className="rounded-2xl bg-white/80 shadow-md p-3 flex flex-col"
+                key={item.id}
+              >
+                <EditableCard
+                  isEditing={activeTab !== "report" && editingItem === item.id}
+                  onEdit={
+                    activeTab !== "report"
+                      ? () => handleEdit(item, "name")
+                      : undefined
+                  }
+                  onCancel={handleCancel}
+                >
+                  {renderDisplayContent(item)}
+                </EditableCard>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

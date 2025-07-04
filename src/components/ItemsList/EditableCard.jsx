@@ -1,17 +1,6 @@
 import React, { useRef, useEffect } from "react";
-import { formatDate } from "../../utils/formatters";
 
-const EditableCard = ({
-  isEditing,
-  onEdit,
-  onSave,
-  onCancel,
-  onDelete,
-  children,
-  timestamp,
-  period,
-  isExternal,
-}) => {
+const EditableCard = ({ isEditing, onEdit, onCancel, children }) => {
   const cardRef = useRef(null);
 
   useEffect(() => {
@@ -46,47 +35,7 @@ const EditableCard = ({
       }`}
       onClick={!isEditing && onEdit ? onEdit : undefined}
     >
-      <div className="flex-1">
-        {children}
-        {(timestamp || period || isExternal !== undefined) && (
-          <div className="flex justify-between items-baseline mt-1">
-            <span className="text-xs text-gray-500 leading-none">
-              {timestamp ? formatDate(timestamp) : ""}
-            </span>
-            <div className="flex items-center gap-1">
-              {isExternal !== undefined && (
-                <span
-                  className={`text-xs px-1 py-0.5 rounded text-white ${
-                    isExternal ? "bg-green-500" : "bg-orange-500"
-                  }`}
-                >
-                  {isExternal ? "EXT" : "INT"}
-                </span>
-              )}
-              <span className="text-xs text-gray-500 leading-none">
-                {period || ""}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {isEditing && (
-        <div className="flex gap-2 ml-4">
-          <button
-            onClick={onSave}
-            className="px-3 py-1 border border-gray-300 rounded text-sm text-black"
-          >
-            Save
-          </button>
-          <button
-            onClick={onDelete}
-            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-          >
-            Delete
-          </button>
-        </div>
-      )}
+      <div className="flex-1">{children}</div>
     </div>
   );
 };

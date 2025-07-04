@@ -50,7 +50,7 @@ const VoiceInput = ({
   };
 
   const getTabSpecificPrompt = () => {
-    const currencyContext = `The user is using ${selectedCurrency} currency. Convert amounts to THB (Thai Baht) if mentioned in other currencies like USD, NZD, or AED.`;
+    const currencyContext = `The user is using ${selectedCurrency} currency. Return amounts in the original currency mentioned - do not convert currencies.`;
 
     switch (activeTab) {
       case "income":
@@ -150,12 +150,12 @@ const VoiceInput = ({
     <button
       onClick={isRecording ? stopRecording : startRecording}
       disabled={isProcessing}
-      className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${
+      className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 shadow-md ${
         isRecording
-          ? "bg-red-500 hover:bg-red-600 text-white"
+          ? "bg-gradient-to-r from-red-400 to-pink-500 hover:from-red-500 hover:to-pink-600 text-white"
           : isProcessing
           ? "bg-gray-400 cursor-not-allowed text-white"
-          : "bg-blue-500 hover:bg-blue-600 text-white"
+          : "bg-gradient-to-r from-blue-400 to-indigo-500 hover:from-blue-500 hover:to-indigo-600 text-white"
       }`}
       title={isRecording ? "Stop Recording" : "Start Voice Input"}
     >

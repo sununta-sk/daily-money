@@ -6,6 +6,8 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
+  getDoc,
+  setDoc,
   query,
   where,
   serverTimestamp,
@@ -34,13 +36,18 @@ export const onAuthChange = (callback) => {
 };
 
 // Generic CRUD operations
-export const saveDocument = async (collectionName, data, userId) => {
+export const saveDocument = async (
+  collectionName,
+  data,
+  userId,
+  timestamp = null
+) => {
   try {
     const docRef = await addDoc(
       collection(db, "users", userId, collectionName),
       {
         ...data,
-        timestamp: serverTimestamp(),
+        timestamp: timestamp || serverTimestamp(),
       }
     );
     return { id: docRef.id, ...data };
@@ -54,7 +61,7 @@ export const updateDocument = async (collectionName, id, data, userId) => {
     const docRef = doc(db, "users", userId, collectionName, id);
     await updateDoc(docRef, {
       ...data,
-      timestamp: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
     return { id, ...data };
   } catch (error) {
@@ -107,16 +114,16 @@ export const getDocuments = async (collectionName, userId) => {
 };
 
 // Specific operations for budget app
-export const saveIncome = async (income) => {
-  return saveDocument("incomes", income, income.userId);
+export const saveIncome = async (income, timestamp = null) => {
+  return saveDocument("incomes", income, income.userId, timestamp);
 };
 
-export const saveCost = async (cost) => {
-  return saveDocument("costs", cost, cost.userId);
+export const saveCost = async (cost, timestamp = null) => {
+  return saveDocument("costs", cost, cost.userId, timestamp);
 };
 
-export const saveGoal = async (goal) => {
-  return saveDocument("goals", goal, goal.userId);
+export const saveGoal = async (goal, timestamp = null) => {
+  return saveDocument("goals", goal, goal.userId, timestamp);
 };
 
 export const updateIncome = async (id, data, userId) => {
@@ -151,6 +158,60 @@ export const getUserData = async (userId) => {
   ]);
 
   return { incomes, costs, goals };
+};
+
+// User settings operations
+export const saveUserSettings = async (settings, userId) => {
+  if (!userId) {
+    console.warn("No userId provided for user settings");
+    return settings;
+  }
+
+  const settingsRef = doc(db, "users", userId, "settings", "userSettings");
+
+  try {
+    await updateDoc(settingsRef, {
+      ...settings,
+      timestamp: serverTimestamp(),
+    });
+    return settings;
+  } catch (error) {
+    // If document doesn't exist, create it
+    if (error.code === "not-found" || error.code === "permission-denied") {
+      await setDoc(settingsRef, {
+        ...settings,
+        timestamp: serverTimestamp(),
+      });
+      return settings;
+    }
+    throw error;
+  }
+};
+
+export const getUserSettings = async (userId) => {
+  try {
+    if (!userId) {
+      console.warn("No userId provided for user settings");
+      return { moneyInBank: "", spendLimit: "", lastTab: "expenses" };
+    }
+
+    const settingsRef = doc(db, "users", userId, "settings", "userSettings");
+    const settingsDoc = await getDoc(settingsRef);
+
+    if (settingsDoc.exists()) {
+      const settings = settingsDoc.data();
+      return {
+        moneyInBank: settings.moneyInBank || "",
+        spendLimit: settings.spendLimit || "",
+        lastTab: settings.lastTab || "expenses",
+      };
+    }
+
+    return { moneyInBank: "", spendLimit: "", lastTab: "expenses" };
+  } catch (error) {
+    console.error("Error fetching user settings:", error);
+    return { moneyInBank: "", spendLimit: "", lastTab: "expenses" };
+  }
 };
 
 // Timestamp analysis and migration utilities

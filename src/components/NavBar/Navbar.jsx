@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { CURRENCIES } from "../../utils/currency";
 import WhaleLogo from "../WhaleLogo";
 
-const Navbar = ({ onTabChange, onCurrencyChange, user }) => {
-  const [activeTab, setActiveTab] = useState("income");
+const Navbar = ({ onTabChange, onCurrencyChange, user, lastTab }) => {
+  const [activeTab, setActiveTab] = useState(lastTab || "income");
   const [selectedCurrency, setSelectedCurrency] = useState("THB");
 
   const tabs = [
@@ -22,6 +22,13 @@ const Navbar = ({ onTabChange, onCurrencyChange, user }) => {
   useEffect(() => {
     onCurrencyChange?.(selectedCurrency);
   }, [selectedCurrency]);
+
+  // Sync activeTab when lastTab changes
+  useEffect(() => {
+    if (lastTab && lastTab !== activeTab) {
+      setActiveTab(lastTab);
+    }
+  }, [lastTab]);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
@@ -56,9 +63,11 @@ const Navbar = ({ onTabChange, onCurrencyChange, user }) => {
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200 shadow-md
-                ${activeTab === tab.id
-                  ? "bg-gradient-to-r from-blue-400 to-indigo-400 text-white"
-                  : "bg-white/80 text-gray-600 hover:text-blue-700 hover:bg-blue-50"}
+                ${
+                  activeTab === tab.id
+                    ? "bg-gradient-to-r from-blue-400 to-indigo-400 text-white"
+                    : "bg-white/80 text-gray-600 hover:text-blue-700 hover:bg-blue-50"
+                }
               `}
             >
               {tab.label}
