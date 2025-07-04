@@ -40,9 +40,12 @@ const Navbar = ({ onTabChange, onCurrencyChange, user, lastTab }) => {
 
   return (
     <nav className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md flex items-center justify-between">
-      <div className="flex items-center gap-2">
+      {/* Left Section: Logo and Navigation */}
+      <div className="flex items-center">
+        {/* App Logo */}
         <WhaleLogo className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full shadow" />
-        {/* Mobile: Dropdown select */}
+
+        {/* Mobile Navigation: Dropdown select */}
         <div className="md:hidden ml-2">
           <select
             value={activeTab}
@@ -56,7 +59,8 @@ const Navbar = ({ onTabChange, onCurrencyChange, user, lastTab }) => {
             ))}
           </select>
         </div>
-        {/* Desktop: Tab buttons */}
+
+        {/* Desktop Navigation: Tab buttons */}
         <div className="hidden md:flex gap-2 ml-4">
           {tabs.map((tab) => (
             <button
@@ -75,8 +79,11 @@ const Navbar = ({ onTabChange, onCurrencyChange, user, lastTab }) => {
           ))}
         </div>
       </div>
+
+      {/* Right Section: User Controls */}
       {user && (
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
+          {/* Currency Selector */}
           <select
             value={selectedCurrency}
             onChange={(e) => handleCurrencyChange(e.target.value)}
@@ -88,6 +95,8 @@ const Navbar = ({ onTabChange, onCurrencyChange, user, lastTab }) => {
               </option>
             ))}
           </select>
+
+          {/* User Profile Picture */}
           <div className="flex items-center">
             <img
               src={user.photoURL}

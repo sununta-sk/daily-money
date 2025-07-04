@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import EditableCard from "./EditableCard";
 import { capitalizeFirstLetter, formatDate } from "../../utils/formatters";
-import { formatCurrency } from "../../utils/currency";
+import {
+  formatCurrency,
+  getCurrencySymbol,
+  CURRENCIES,
+} from "../../utils/currency";
 import {
   calculateTotalMoney,
   calculateRecurringIncome,
@@ -39,6 +43,11 @@ const ItemsList = ({
   const [localMoneyInBank, setLocalMoneyInBank] = useState(moneyInBank);
   const [localSpendLimit, setLocalSpendLimit] = useState(spendLimit);
   const [focusTarget, setFocusTarget] = useState("name"); // Track which element to focus
+  const [isEditingMoneyInBank, setIsEditingMoneyInBank] = useState(false);
+  const [isEditingSpendLimit, setIsEditingSpendLimit] = useState(false);
+  const [isEditingAmount, setIsEditingAmount] = useState(false);
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
+  const [isEditingContribution, setIsEditingContribution] = useState(false);
 
   // Sync local state with props
   useEffect(() => {
@@ -48,6 +57,29 @@ const ItemsList = ({
   useEffect(() => {
     setLocalSpendLimit(spendLimit);
   }, [spendLimit]);
+
+  // Helper function to format currency for display
+  const formatCurrencyForDisplay = (value, currency) => {
+    if (!value || value === "") return "";
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return "";
+
+    const symbol = getCurrencySymbol(currency);
+    const currencyInfo = CURRENCIES[currency];
+    const decimals = currencyInfo?.decimals ?? 2;
+
+    return `${symbol}${numValue.toLocaleString("en-US", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    })}`;
+  };
+
+  // Helper function to parse currency input
+  const parseCurrencyInput = (value) => {
+    if (!value) return "";
+    // Remove currency symbol and commas, keep only numbers and decimal point
+    return value.replace(/[^\d.]/g, "");
+  };
 
   // Visual indicator states and refs
   const [hasMoneyInBank, setHasMoneyInBank] = useState(false);
@@ -196,11 +228,18 @@ const ItemsList = ({
             {isEditingThisItem ? (
               <input
                 ref={priceInputRef}
-                type="number"
-                step="any"
+                type="text"
                 placeholder="Price"
-                value={editPrice}
-                onChange={(e) => setEditPrice(e.target.value)}
+                value={
+                  isEditingPrice
+                    ? editPrice
+                    : formatCurrencyForDisplay(editPrice, selectedCurrency)
+                }
+                onChange={(e) =>
+                  setEditPrice(parseCurrencyInput(e.target.value))
+                }
+                onFocus={() => setIsEditingPrice(true)}
+                onBlur={() => setIsEditingPrice(false)}
                 onClick={(e) => e.stopPropagation()}
                 className="font-medium text-base bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
               />
@@ -225,11 +264,21 @@ const ItemsList = ({
             {isEditingThisItem ? (
               <input
                 ref={contributionInputRef}
-                type="number"
-                step="any"
+                type="text"
                 placeholder="Daily contribution"
-                value={editContribution}
-                onChange={(e) => setEditContribution(e.target.value)}
+                value={
+                  isEditingContribution
+                    ? editContribution
+                    : formatCurrencyForDisplay(
+                        editContribution,
+                        selectedCurrency
+                      )
+                }
+                onChange={(e) =>
+                  setEditContribution(parseCurrencyInput(e.target.value))
+                }
+                onFocus={() => setIsEditingContribution(true)}
+                onBlur={() => setIsEditingContribution(false)}
                 onClick={(e) => e.stopPropagation()}
                 className="text-xs text-gray-500 bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
               />
@@ -312,11 +361,18 @@ const ItemsList = ({
             {isEditingThisItem ? (
               <input
                 ref={amountInputRef}
-                type="number"
-                step="any"
+                type="text"
                 placeholder="Amount"
-                value={editAmount}
-                onChange={(e) => setEditAmount(e.target.value)}
+                value={
+                  isEditingAmount
+                    ? editAmount
+                    : formatCurrencyForDisplay(editAmount, selectedCurrency)
+                }
+                onChange={(e) =>
+                  setEditAmount(parseCurrencyInput(e.target.value))
+                }
+                onFocus={() => setIsEditingAmount(true)}
+                onBlur={() => setIsEditingAmount(false)}
                 onClick={(e) => e.stopPropagation()}
                 className="font-medium text-base bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
               />
@@ -427,11 +483,18 @@ const ItemsList = ({
           {isEditingThisItem ? (
             <input
               ref={amountInputRef}
-              type="number"
-              step="any"
+              type="text"
               placeholder="Amount"
-              value={editAmount}
-              onChange={(e) => setEditAmount(e.target.value)}
+              value={
+                isEditingAmount
+                  ? editAmount
+                  : formatCurrencyForDisplay(editAmount, selectedCurrency)
+              }
+              onChange={(e) =>
+                setEditAmount(parseCurrencyInput(e.target.value))
+              }
+              onFocus={() => setIsEditingAmount(true)}
+              onBlur={() => setIsEditingAmount(false)}
               onClick={(e) => e.stopPropagation()}
               className="font-medium text-base bg-transparent border-b border-gray-300 px-0 py-0 focus:outline-none focus:border-gray-500"
             />
@@ -605,17 +668,29 @@ const ItemsList = ({
           {activeTab === "income" || activeTab === "expenses" ? (
             <div className="flex items-center gap-1 relative">
               <input
-                type="number"
+                type="text"
                 placeholder="Available funds"
-                value={localMoneyInBank}
-                onChange={(e) => setLocalMoneyInBank(e.target.value)}
+                value={
+                  isEditingMoneyInBank
+                    ? localMoneyInBank
+                    : formatCurrencyForDisplay(
+                        localMoneyInBank,
+                        selectedCurrency
+                      )
+                }
+                onChange={(e) =>
+                  setLocalMoneyInBank(parseCurrencyInput(e.target.value))
+                }
+                onFocus={() => setIsEditingMoneyInBank(true)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
+                    setIsEditingMoneyInBank(false);
                     setMoneyInBank(localMoneyInBank);
                     onSaveMoneyInBank(localMoneyInBank);
                   }
                 }}
                 onBlur={() => {
+                  setIsEditingMoneyInBank(false);
                   setMoneyInBank(localMoneyInBank);
                   onSaveMoneyInBank(localMoneyInBank);
                 }}
@@ -631,17 +706,29 @@ const ItemsList = ({
           ) : activeTab === "goals" ? (
             <div className="flex items-center gap-1 relative">
               <input
-                type="number"
+                type="text"
                 placeholder="Monthly limit"
-                value={localSpendLimit}
-                onChange={(e) => setLocalSpendLimit(e.target.value)}
+                value={
+                  isEditingSpendLimit
+                    ? localSpendLimit
+                    : formatCurrencyForDisplay(
+                        localSpendLimit,
+                        selectedCurrency
+                      )
+                }
+                onChange={(e) =>
+                  setLocalSpendLimit(parseCurrencyInput(e.target.value))
+                }
+                onFocus={() => setIsEditingSpendLimit(true)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
+                    setIsEditingSpendLimit(false);
                     setSpendLimit(localSpendLimit);
                     onSaveSpendLimit(localSpendLimit);
                   }
                 }}
                 onBlur={() => {
+                  setIsEditingSpendLimit(false);
                   setSpendLimit(localSpendLimit);
                   onSaveSpendLimit(localSpendLimit);
                 }}

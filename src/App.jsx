@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Navbar from "./components/NavBar/Navbar";
 import AddArea from "./components/AddArea/AddArea";
 import ItemsList from "./components/ItemsList/ItemsList";
+import MiniReport from "./components/MiniReport/MiniReport";
 import WhaleLogo from "./components/WhaleLogo";
 import {
   onAuthChange,
@@ -335,6 +336,11 @@ function App() {
           onDeleteItem={handleDeleteItem}
           onSaveMoneyInBank={saveMoneyInBank}
           onSaveSpendLimit={saveSpendLimit}
+        />
+        <MiniReport
+          incomes={incomes}
+          costs={costs}
+          selectedCurrency={selectedCurrency}
         />
       </div>
     </div>

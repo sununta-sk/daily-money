@@ -43,14 +43,15 @@ export const saveDocument = async (
   timestamp = null
 ) => {
   try {
+    const finalTimestamp = timestamp || serverTimestamp();
     const docRef = await addDoc(
       collection(db, "users", userId, collectionName),
       {
         ...data,
-        timestamp: timestamp || serverTimestamp(),
+        timestamp: finalTimestamp,
       }
     );
-    return { id: docRef.id, ...data };
+    return { id: docRef.id, ...data, timestamp: finalTimestamp };
   } catch (error) {
     throw error;
   }
