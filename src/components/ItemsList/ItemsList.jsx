@@ -1,530 +1,468 @@
 import React, { useState, useEffect, useRef } from "react";
+import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import EditableCard from "./EditableCard";
-import { formatDate } from "../../utils/formatters";
-import { getCurrencySymbol, CURRENCIES } from "../../utils/currency";
-import {
-  calculateTotalMoney,
-  calculateRecurringIncome,
-  calculateMonthlyExpenses,
-  calculateDailyFreeMoney,
-  calculateHowLongYouCanLive,
-  getSortedItems,
-} from "../../utils/calculations";
+import GoalCard from "./GoalCard";
+import GroupHeader from "./GroupHeader";
+import { getCurrencySymbol } from "../../utils/currency";
 
 const ItemsList = ({
   activeTab,
-  incomes,
-  costs,
-  goals,
+  cardArray: cardArrayProp,
+  setEditedCard,
+  setDeletedCard,
+  setAddedCard,
+  setEditedGoal,
+  setDeletedGoal,
+  setAddedGroup,
+  setClickOutsideMessage,
   moneyInBank,
   setMoneyInBank,
   spendLimit,
   setSpendLimit,
-  sortOrder,
-  setSortOrder,
   selectedCurrency,
-  onUpdateItem,
-  onDeleteItem,
-  onSaveMoneyInBank,
-  onSaveSpendLimit,
+  setCardOrder,
+  cardOrder: savedOrder,
 }) => {
-  const [editingItem, setEditingItem] = useState(null);
-  const [editName, setEditName] = useState("");
-  const [editAmount, setEditAmount] = useState("");
-  const [editPeriod, setEditPeriod] = useState("monthly");
-  const [editPrice, setEditPrice] = useState("");
-  const [editContribution, setEditContribution] = useState("");
-  const [editIsExternal, setEditIsExternal] = useState(true);
+  // ===== LOCAL-FIRST STATE FOR IMMEDIATE UI FEEDBACK =====
   const [localMoneyInBank, setLocalMoneyInBank] = useState(moneyInBank);
   const [localSpendLimit, setLocalSpendLimit] = useState(spendLimit);
-  const [focusTarget, setFocusTarget] = useState("name"); // Track which element to focus
   const [isEditingMoneyInBank, setIsEditingMoneyInBank] = useState(false);
   const [isEditingSpendLimit, setIsEditingSpendLimit] = useState(false);
 
-  // Sync local state with props
+  // ===== LOCAL CARD DATA FOR DRAG AND DROP ORDER =====
+  const [cardArray, setCardArray] = useState(cardArrayProp);
+  const [hasCustomOrder, setHasCustomOrder] = useState(false);
+
+  // ===== GROUP CREATION STATE =====
+  const [creatingGroupForCard, setCreatingGroupForCard] = useState(null);
+  const [groupName, setGroupName] = useState("");
+
+  // ===== CLICK OUTSIDE STATE =====
+  const [clickOutsideMessage, setLocalClickOutsideMessage] = useState("");
+
+  // ===== REFS FOR STATE MANAGEMENT =====
+  const saveTimeoutRef = useRef(null);
+  const itemsListRef = useRef(null);
+  const groupInputRef = useRef(null);
+
+  // ===== CLICK OUTSIDE DETECTION =====
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        itemsListRef.current &&
+        !itemsListRef.current.contains(event.target)
+      ) {
+        setLocalClickOutsideMessage("clicked-outside");
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [setClickOutsideMessage]);
+
+  // ===== DRAG AND DROP HANDLERS =====
+  const handleDragStart = () => {
+    // TODO: Add reordering logic here if needed
+  };
+
+  const handleDragEnd = (result) => {
+    // If dropped outside the list, do nothing
+    if (!result.destination) {
+      return;
+    }
+
+    // If dropped in the same position, do nothing
+    if (result.destination.index === result.source.index) {
+      return;
+    }
+
+    // Get the current items array (already filtered by activeTab)
+    const { items } = getDisplayData();
+
+    // Create a copy of the items array
+    const reorderedItems = Array.from(items);
+
+    // Remove the item from its original position
+    const [removed] = reorderedItems.splice(result.source.index, 1);
+
+    // Insert the item at its new position
+    reorderedItems.splice(result.destination.index, 0, removed);
+
+    // Update local card data with the new order
+    setCardArray(reorderedItems);
+    setHasCustomOrder(true);
+
+    // Extract Firebase IDs in the new order
+    const newOrder = reorderedItems.map((item) => item.id);
+
+    // Save the order array to Firebase
+    setCardOrder(newOrder, activeTab);
+  };
+
+  // Sync local money in bank with prop changes
   useEffect(() => {
     setLocalMoneyInBank(moneyInBank);
   }, [moneyInBank]);
 
+  // Sync local spend limit with prop changes
   useEffect(() => {
     setLocalSpendLimit(spendLimit);
   }, [spendLimit]);
 
-  // Helper function to format currency for display
-  const formatCurrencyForDisplay = (value, currency) => {
-    if (!value || value === "") return "";
-    const numValue = parseFloat(value);
-    if (isNaN(numValue)) return "";
-
-    const symbol = getCurrencySymbol(currency);
-    const currencyInfo = CURRENCIES[currency];
-    const decimals = currencyInfo?.decimals ?? 2;
-
-    return `${symbol}${numValue.toLocaleString("en-US", {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    })}`;
-  };
-
-  // Helper function to parse currency input
-  const parseCurrencyInput = (value) => {
-    if (!value) return "";
-    // Remove currency symbol and commas, keep only numbers and decimal point
-    return value.replace(/[^\d.]/g, "");
-  };
-
-  // Visual indicator states and refs
-  const [hasMoneyInBank, setHasMoneyInBank] = useState(false);
-  const [hasSpendLimit, setHasSpendLimit] = useState(false);
-
-  // Refs for focus management
-  const nameInputRef = useRef(null);
-  const amountInputRef = useRef(null);
-  const periodSelectRef = useRef(null);
-  const priceInputRef = useRef(null);
-  const contributionInputRef = useRef(null);
-
-  // Update validation states when values change
+  // Sync local card data with prop changes
   useEffect(() => {
-    setHasMoneyInBank(
-      moneyInBank &&
-        !isNaN(parseFloat(moneyInBank)) &&
-        parseFloat(moneyInBank) > 0
-    );
-    setHasSpendLimit(
-      spendLimit && !isNaN(parseFloat(spendLimit)) && parseFloat(spendLimit) > 0
-    );
-  }, [moneyInBank, spendLimit]);
+    // Only update local data if we don't have a custom order
+    // This prevents the prop from overwriting our drag-and-drop reordering
+    if (!hasCustomOrder) {
+      setCardArray(cardArrayProp);
+    }
+  }, [cardArrayProp, hasCustomOrder]);
 
-  // Focus effect when entering edit mode
+  // Reset custom order when sort order changes
   useEffect(() => {
-    if (editingItem && focusTarget) {
-      setTimeout(() => {
-        switch (focusTarget) {
-          case "name":
-            nameInputRef.current?.focus();
-            break;
-          case "amount":
-            amountInputRef.current?.focus();
-            break;
-          case "period":
-            periodSelectRef.current?.focus();
-            break;
-          case "price":
-            priceInputRef.current?.focus();
-            break;
-          case "contribution":
-            contributionInputRef.current?.focus();
-            break;
-          default:
-            nameInputRef.current?.focus();
-        }
-      }, 100);
-    }
-  }, [editingItem, focusTarget]);
+    setHasCustomOrder(false);
+  }, []);
 
-  const handleEdit = (item, focusElement = "name") => {
-    // If already editing this item, save and close
-    if (editingItem === item.id) {
-      handleSave();
-      return;
+  // ===== LOCAL PREPARE FUNCTIONS FOR UI INTERACTIONS =====
+  const handleMoneyInBankChange = (value) => {
+    setLocalMoneyInBank(value);
+
+    // Debounced save to database
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
 
-    // Otherwise, start editing
-    setEditingItem(item.id);
-    setEditName(item.name || "");
-    setEditAmount(item.amount?.toString() || item.price?.toString() || "");
-    setEditPeriod(item.period || "monthly");
-    setEditPrice(item.price?.toString() || "");
-    setEditContribution(item.dailyContribution?.toString() || "");
-    setEditIsExternal(item.isExternal !== false); // Default to true if undefined
-    setFocusTarget(focusElement);
-  };
-
-  const handleSave = async () => {
-    if (!editingItem || !onUpdateItem) return;
-
-    const updatedData = {
-      name: editName,
-      amount: editAmount,
-      period: editPeriod,
-      price: editPrice,
-      dailyContribution: editContribution,
-      ...(activeTab === "income" && { isExternal: editIsExternal }),
-    };
-
-    await onUpdateItem(editingItem, updatedData);
-
-    setEditingItem(null);
-    setEditName("");
-    setEditAmount("");
-    setEditPeriod("monthly");
-    setEditPrice("");
-    setEditContribution("");
-    setEditIsExternal(true);
-  };
-
-  const handleCancel = () => {
-    setEditingItem(null);
-    setEditName("");
-    setEditAmount("");
-    setEditPeriod("monthly");
-    setEditPrice("");
-    setEditContribution("");
-    setEditIsExternal(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (onDeleteItem) {
-      await onDeleteItem(id);
-    }
-  };
-
-  // Generate display data based on active tab
-  const getDisplayData = () => {
-    switch (activeTab) {
-      case "income":
-        return {
-          title: "Your Income",
-          items: getSortedItems(incomes, sortOrder).map((item) => ({
-            ...item,
-            formattedAmount: formatCurrencyForDisplay(
-              item.amount,
-              selectedCurrency
-            ),
-            formattedTimestamp: item.timestamp
-              ? formatDate(item.timestamp)
-              : null,
-            periodOptions: [
-              { value: "daily", label: "Daily" },
-              { value: "weekly", label: "Weekly" },
-              { value: "monthly", label: "Monthly" },
-              { value: "yearly", label: "Yearly" },
-              { value: "one-off", label: "One-off" },
-            ],
-          })),
-          showSort: true,
-        };
-      case "expenses":
-        return {
-          title: "Your Expenses",
-          items: getSortedItems(costs, sortOrder).map((item) => ({
-            ...item,
-            formattedAmount: formatCurrencyForDisplay(
-              item.amount,
-              selectedCurrency
-            ),
-            formattedTimestamp: item.timestamp
-              ? formatDate(item.timestamp)
-              : null,
-            periodOptions: [
-              { value: "daily", label: "Daily" },
-              { value: "weekly", label: "Weekly" },
-              { value: "monthly", label: "Monthly" },
-              { value: "yearly", label: "Yearly" },
-              { value: "one-off", label: "One-off" },
-            ],
-          })),
-          showSort: true,
-        };
-      case "goals":
-        return {
-          title: "Your Goals",
-          items: getSortedItems(goals, sortOrder).map((item) => {
-            const price = item.price || 0;
-            const dailyContribution = item.dailyContribution || 0;
-            const days =
-              dailyContribution > 0
-                ? Math.ceil(price / dailyContribution)
-                : Infinity;
-            const targetDate =
-              dailyContribution > 0
-                ? new Date(
-                    Date.now() + days * 24 * 60 * 60 * 1000
-                  ).toLocaleDateString()
-                : "Never";
-
-            return {
-              ...item,
-              formattedPrice: formatCurrencyForDisplay(price, selectedCurrency),
-              formattedContribution: formatCurrencyForDisplay(
-                dailyContribution,
-                selectedCurrency
-              ),
-              targetDate,
-              days: days === Infinity ? "∞" : days.toString(),
-              periodOptions: [
-                { value: "daily", label: "Daily" },
-                { value: "weekly", label: "Weekly" },
-                { value: "monthly", label: "Monthly" },
-                { value: "yearly", label: "Yearly" },
-                { value: "one-off", label: "One-off" },
-              ],
-            };
-          }),
-          showSort: true,
-        };
-      case "report": {
-        const totalMoney = calculateTotalMoney(incomes, costs, moneyInBank);
-        const recurringIncome = calculateRecurringIncome(incomes);
-        const totalExpenses = calculateMonthlyExpenses(costs);
-        const dailyFreeMoney = calculateDailyFreeMoney(incomes, costs);
-        const survivalTime = calculateHowLongYouCanLive(
-          incomes,
-          costs,
-          moneyInBank
-        );
-
-        const reportItems = [
-          {
-            id: "money-in-bank",
-            name: "Money in Bank",
-            amount: parseFloat(moneyInBank) || 0,
-            subtitle: "Current bank balance",
-            formattedAmount: formatCurrencyForDisplay(
-              parseFloat(moneyInBank) || 0,
-              selectedCurrency
-            ),
-          },
-          {
-            id: "total-money",
-            name: "Total Money Available",
-            amount: totalMoney,
-            subtitle: "Bank + all income sources",
-            formattedAmount: formatCurrencyForDisplay(
-              totalMoney,
-              selectedCurrency
-            ),
-          },
-          {
-            id: "recurring-income",
-            name: "Monthly Recurring Income",
-            amount: recurringIncome,
-            subtitle: "Regular income streams only",
-            formattedAmount: formatCurrencyForDisplay(
-              recurringIncome,
-              selectedCurrency
-            ),
-          },
-          {
-            id: "total-expenses",
-            name: "Total Monthly Expenses",
-            amount: totalExpenses,
-            subtitle: "Including spend limits",
-            formattedAmount: formatCurrencyForDisplay(
-              totalExpenses,
-              selectedCurrency
-            ),
-          },
-          {
-            id: "daily-free-money",
-            name: "Daily Free Money",
-            amount: dailyFreeMoney,
-            subtitle: "Available daily after expenses",
-            formattedAmount: formatCurrencyForDisplay(
-              dailyFreeMoney,
-              selectedCurrency
-            ),
-          },
-          {
-            id: "survival-time",
-            name: "How Long You Can Live",
-            amount:
-              survivalTime === Infinity
-                ? "Forever"
-                : `${Math.round(survivalTime)} days`,
-            subtitle: "Based on current income and expenses",
-            isText: true,
-            formattedAmount:
-              survivalTime === Infinity
-                ? "Forever"
-                : `${Math.round(survivalTime)} days`,
-          },
-        ];
-
-        return {
-          title: "Financial Report",
-          items: reportItems,
-          showSort: false,
-        };
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await setMoneyInBank(value);
+      } catch (error) {
+        console.error("Error saving money in bank:", error);
+        // Revert on error
+        setLocalMoneyInBank(moneyInBank);
       }
-      default:
-        return {
-          title: "Items",
-          items: [],
-          showSort: false,
+    }, 1000);
+  };
+
+  const handleSpendLimitChange = (value) => {
+    setLocalSpendLimit(value);
+
+    // Debounced save to database
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await setSpendLimit(value);
+      } catch (error) {
+        console.error("Error saving spend limit:", error);
+        // Revert on error
+        setLocalSpendLimit(spendLimit);
+      }
+    }, 1000);
+  };
+
+  // ===== GROUP CREATION HANDLERS =====
+  const handleCreateGroup = (cardId) => {
+    setCreatingGroupForCard(cardId);
+    setGroupName("");
+    // Focus the input after render
+    setTimeout(() => {
+      if (groupInputRef.current) {
+        groupInputRef.current.focus();
+      }
+    }, 100);
+  };
+
+  const handleGroupNameSubmit = async (e) => {
+    e.preventDefault();
+    if (!groupName.trim()) return;
+
+    try {
+      console.log("Creating group with name:", groupName.trim());
+      console.log("For card:", creatingGroupForCard);
+      console.log("Active tab:", activeTab);
+
+      // Create the group
+      const newGroup = await setAddedGroup(groupName.trim(), activeTab);
+      console.log("Group created:", newGroup);
+
+      // Update the cardOrder to include the group structure
+      const currentOrder = savedOrder || [];
+      const cardIndex = currentOrder.indexOf(creatingGroupForCard);
+
+      if (cardIndex !== -1) {
+        // Create new order with group structure
+        const newOrder = [...currentOrder];
+
+        // Create simple group object: { name: "Group Name", items: ["cardId1", "cardId2"] }
+        const groupObject = {
+          name: groupName.trim(),
+          items: [creatingGroupForCard],
         };
+
+        // Replace the card with the group object
+        newOrder.splice(cardIndex, 1, groupObject);
+
+        console.log("New order with group:", newOrder);
+
+        // Save the new order
+        await setCardOrder(newOrder, activeTab);
+      }
+
+      // Clear group creation state
+      setCreatingGroupForCard(null);
+      setGroupName("");
+    } catch (error) {
+      console.error("Error creating group:", error);
     }
   };
 
-  const { title, items, showSort } = getDisplayData();
+  const handleGroupNameCancel = () => {
+    setCreatingGroupForCard(null);
+    setGroupName("");
+  };
+
+  // ===== UTILITY FUNCTIONS =====
+  const formatCurrencyForDisplay = (value, currency) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${value.toLocaleString()}`;
+  };
+
+  const parseCurrencyInput = (value) => {
+    return parseFloat(value.replace(/[^0-9.-]+/g, "")) || 0;
+  };
+
+  // ===== CARD ORDER AS SOURCE OF TRUTH =====
+  const getDisplayData = () => {
+    if (activeTab === "goals") {
+      return { items: cardArray || [] };
+    } else {
+      // CARD ORDER IS THE PRIMARY SOURCE OF TRUTH
+      // Only show cards that are explicitly in the cardOrder array
+      if (!savedOrder || savedOrder.length === 0) {
+        return { items: [] }; // No cards if cardOrder is empty
+      }
+
+      // Create a map of all available cards for quick lookup
+      const cardMap = new Map(cardArray.map((card) => [card.id, card]));
+
+      // Build the display array based on cardOrder
+      const orderedItems = [];
+
+      for (const item of savedOrder) {
+        if (typeof item === "string") {
+          // This is a card ID - add the card
+          const card = cardMap.get(item);
+          if (card) {
+            orderedItems.push({ ...card, type: "card" });
+          }
+        } else if (
+          item &&
+          typeof item === "object" &&
+          item.name &&
+          item.items
+        ) {
+          // This is a group object - add group header and grouped cards
+          orderedItems.push({
+            id: `group-${item.name}`,
+            name: item.name,
+            type: "group-header",
+            isExpanded: true, // Default to expanded
+          });
+
+          // Add the grouped cards
+          for (const cardId of item.items) {
+            const card = cardMap.get(cardId);
+            if (card) {
+              orderedItems.push({
+                ...card,
+                type: "grouped-card",
+                groupName: item.name,
+              });
+            }
+          }
+        }
+      }
+
+      return { items: orderedItems };
+    }
+  };
+
+  // ===== RENDER LOGIC =====
+  const { items } = getDisplayData();
+
+  if (items.length === 0) {
+    return (
+      <div className="flex-1 bg-white rounded-lg shadow-sm p-4">
+        <div className="text-center text-gray-500">
+          No {activeTab} items yet. Add your first {activeTab} above!
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-3 border rounded-2xl bg-white/70 backdrop-blur-md shadow-md flex-1 flex flex-col min-h-0 w-full">
-      {/* Header Section - Fixed */}
-      <div className="flex flex-col mb-4 flex-shrink-0">
-        {/* Title Line */}
-        <div className="flex justify-start mb-2">
-          <h2 className="text-xl font-semibold text-gray-700 drop-shadow-sm m-0">
-            {title}
-          </h2>
-        </div>
-
-        {/* Special Input and Sort Line */}
-        <div className="flex justify-between items-center">
-          {/* Special Input - Left Side */}
-          {activeTab === "income" || activeTab === "expenses" ? (
-            <div className="flex items-center gap-1 relative">
-              <input
-                type="text"
-                placeholder="Available funds"
-                value={
-                  isEditingMoneyInBank
-                    ? localMoneyInBank
-                    : formatCurrencyForDisplay(
-                        localMoneyInBank,
-                        selectedCurrency
-                      )
-                }
-                onChange={(e) =>
-                  setLocalMoneyInBank(parseCurrencyInput(e.target.value))
-                }
-                onFocus={() => setIsEditingMoneyInBank(true)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    setIsEditingMoneyInBank(false);
-                    setMoneyInBank(localMoneyInBank);
-                    onSaveMoneyInBank(localMoneyInBank);
-                  }
-                }}
-                onBlur={() => {
-                  setIsEditingMoneyInBank(false);
-                  setMoneyInBank(localMoneyInBank);
-                  onSaveMoneyInBank(localMoneyInBank);
-                }}
-                title="Estimated amount you could access if needed"
-                className={`border rounded-lg px-2 py-1 text-xs w-32 bg-white/80 shadow ${
-                  (activeTab === "income" || activeTab === "expenses") &&
-                  !hasMoneyInBank
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
-              />
-            </div>
-          ) : activeTab === "goals" ? (
-            <div className="flex items-center gap-1 relative">
-              <input
-                type="text"
-                placeholder="Monthly limit"
-                value={
-                  isEditingSpendLimit
-                    ? localSpendLimit
-                    : formatCurrencyForDisplay(
-                        localSpendLimit,
-                        selectedCurrency
-                      )
-                }
-                onChange={(e) =>
-                  setLocalSpendLimit(parseCurrencyInput(e.target.value))
-                }
-                onFocus={() => setIsEditingSpendLimit(true)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    setIsEditingSpendLimit(false);
-                    setSpendLimit(localSpendLimit);
-                    onSaveSpendLimit(localSpendLimit);
-                  }
-                }}
-                onBlur={() => {
-                  setIsEditingSpendLimit(false);
-                  setSpendLimit(localSpendLimit);
-                  onSaveSpendLimit(localSpendLimit);
-                }}
-                title="Maximum amount you want to spend per month"
-                className={`border rounded-lg px-2 py-1 text-xs w-32 bg-white/80 shadow ${
-                  activeTab === "goals" && !hasSpendLimit
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
-              />
-            </div>
+    <div
+      className="flex-1 bg-white rounded-lg shadow-sm p-4"
+      ref={itemsListRef}
+    >
+      {/* ===== MONEY IN BANK SECTION ===== */}
+      <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-700">
+            Money in Bank:
+          </span>
+          {isEditingMoneyInBank ? (
+            <input
+              type="text"
+              value={formatCurrencyForDisplay(
+                localMoneyInBank,
+                selectedCurrency
+              )}
+              onChange={(e) =>
+                handleMoneyInBankChange(parseCurrencyInput(e.target.value))
+              }
+              onBlur={() => setIsEditingMoneyInBank(false)}
+              className="text-right bg-white border border-gray-300 rounded px-2 py-1 text-sm w-32"
+              autoFocus
+            />
           ) : (
-            <div></div>
-          )}
-
-          {/* Sort - Right Side */}
-          {showSort && (
-            <div className="flex items-center gap-1">
-              <label className="text-xs font-medium text-gray-600">Sort:</label>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                className="border border-gray-300 rounded-lg px-1 py-1 text-xs bg-white/80 shadow"
-              >
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-              </select>
-            </div>
+            <button
+              onClick={() => setIsEditingMoneyInBank(true)}
+              className="text-right text-sm font-medium text-gray-900 hover:text-blue-600"
+            >
+              {formatCurrencyForDisplay(localMoneyInBank, selectedCurrency)}
+            </button>
           )}
         </div>
       </div>
 
-      {/* Items Container - Scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {items.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            {activeTab === "goals"
-              ? "No goals yet. Add your first goal above!"
-              : activeTab === "income"
-              ? "No income sources yet. Add your first income above!"
-              : activeTab === "expenses"
-              ? "No expenses yet. Add your first expense above!"
-              : "No items to display"}
-          </div>
-        ) : (
-          <div className="grid gap-1 w-full">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="border rounded-lg bg-white/80 shadow-sm w-full"
-              >
-                <EditableCard
-                  item={item}
-                  activeTab={activeTab}
-                  selectedCurrency={selectedCurrency}
-                  isEditing={activeTab !== "report" && editingItem === item.id}
-                  onEdit={
-                    activeTab !== "report"
-                      ? () => handleEdit(item, "name")
-                      : undefined
-                  }
-                  onCancel={handleCancel}
-                  onDelete={() => handleDelete(item.id)}
-                  // Edit state props
-                  editName={editName}
-                  setEditName={setEditName}
-                  editAmount={editAmount}
-                  setEditAmount={setEditAmount}
-                  editPeriod={editPeriod}
-                  setEditPeriod={setEditPeriod}
-                  editPrice={editPrice}
-                  setEditPrice={setEditPrice}
-                  editContribution={editContribution}
-                  setEditContribution={setEditContribution}
-                  editIsExternal={editIsExternal}
-                  setEditIsExternal={setEditIsExternal}
-                  // Refs
-                  nameInputRef={nameInputRef}
-                  amountInputRef={amountInputRef}
-                  periodSelectRef={periodSelectRef}
-                  priceInputRef={priceInputRef}
-                  contributionInputRef={contributionInputRef}
-                />
-              </div>
-            ))}
-          </div>
-        )}
+      {/* ===== SPEND LIMIT SECTION ===== */}
+      <div className="mb-4 p-3 bg-red-50 rounded-lg">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-700">
+            Spend Limit:
+          </span>
+          {isEditingSpendLimit ? (
+            <input
+              type="text"
+              value={formatCurrencyForDisplay(
+                localSpendLimit,
+                selectedCurrency
+              )}
+              onChange={(e) =>
+                handleSpendLimitChange(parseCurrencyInput(e.target.value))
+              }
+              onBlur={() => setIsEditingSpendLimit(false)}
+              className="text-right bg-white border border-gray-300 rounded px-2 py-1 text-sm w-32"
+              autoFocus
+            />
+          ) : (
+            <button
+              onClick={() => setIsEditingSpendLimit(true)}
+              className="text-right text-sm font-medium text-gray-900 hover:text-red-600"
+            >
+              {formatCurrencyForDisplay(localSpendLimit, selectedCurrency)}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* ===== ITEMS LIST ===== */}
+      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <Droppable droppableId="items-list">
+          {(provided) => (
+            <div
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+              className="space-y-2"
+            >
+              {items.map((item, index) => (
+                <React.Fragment key={item.id || item.name || index}>
+                  {/* ===== GROUP CREATION INPUT ===== */}
+                  {creatingGroupForCard === item.id && (
+                    <div className="mb-2 p-3 bg-blue-50 rounded-lg border-2 border-blue-200">
+                      <form
+                        onSubmit={handleGroupNameSubmit}
+                        className="flex gap-2"
+                      >
+                        <input
+                          ref={groupInputRef}
+                          type="text"
+                          placeholder="Enter group name..."
+                          value={groupName}
+                          onChange={(e) => setGroupName(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              handleGroupNameCancel();
+                            }
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          Create
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleGroupNameCancel}
+                          className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    </div>
+                  )}
+
+                  {activeTab === "goals" ? (
+                    <GoalCard
+                      goal={item}
+                      setEditedGoal={setEditedGoal}
+                      setDeletedGoal={setDeletedGoal}
+                      index={index}
+                    />
+                  ) : item.type === "group-header" ? (
+                    <GroupHeader
+                      groupName={item.name}
+                      itemCount={
+                        item.itemCount || (item.items ? item.items.length : 0)
+                      }
+                    />
+                  ) : item.type === "grouped-card" ? (
+                    <div className="ml-4">
+                      <EditableCard
+                        cardItem={{ ...item, type: activeTab }}
+                        setEditedCard={setEditedCard}
+                        setDeletedCard={setDeletedCard}
+                        setAddedCard={setAddedCard}
+                        clickOutsideMessage={clickOutsideMessage}
+                        index={index}
+                        onCreateGroup={handleCreateGroup}
+                      />
+                    </div>
+                  ) : (
+                    <EditableCard
+                      cardItem={{ ...item, type: activeTab }}
+                      setEditedCard={setEditedCard}
+                      setDeletedCard={setDeletedCard}
+                      setAddedCard={setAddedCard}
+                      clickOutsideMessage={clickOutsideMessage}
+                      index={index}
+                      onCreateGroup={handleCreateGroup}
+                    />
+                  )}
+                </React.Fragment>
+              ))}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
     </div>
   );
 };
