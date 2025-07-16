@@ -2,7 +2,11 @@ import React from "react";
 import { formatCurrency } from "../../utils/currency";
 import { calculateDailyFreeMoney } from "../../utils/calculations";
 
-const MiniReport = ({ incomes, costs, selectedCurrency }) => {
+const MiniReport = ({ cardArray, goals, selectedCurrency }) => {
+  // Filter cardArray into incomes and costs
+  const incomes = cardArray?.filter((item) => item.type === "income") || [];
+  const costs = cardArray?.filter((item) => item.type === "expense") || [];
+
   const dailyFreeMoney = calculateDailyFreeMoney(incomes, costs);
 
   return (

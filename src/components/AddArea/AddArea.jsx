@@ -3,13 +3,12 @@ import VoiceInput from "./VoiceInput";
 import { capitalizeFirstLetter } from "../../utils/formatters";
 import { getCurrencySymbol } from "../../utils/currency";
 import SwitchToggle from "../SwitchToggle";
+import { PERIOD_OPTIONS } from "../../utils/periods";
 
 const AddArea = ({
   activeTab,
-  onAddIncome,
-  onAddCost,
-  onAddGoal,
   selectedCurrency,
+  onAddCardItem,
   onOpenChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,13 +27,7 @@ const AddArea = ({
 
   const [isExternalIncome, setIsExternalIncome] = useState(true);
 
-  const INCOME_PERIODS = [
-    { value: "daily", label: "Daily" },
-    { value: "weekly", label: "Weekly" },
-    { value: "monthly", label: "Monthly" },
-    { value: "yearly", label: "Yearly" },
-    { value: "one-off", label: "One-off" },
-  ];
+  const INCOME_PERIODS = PERIOD_OPTIONS;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -53,7 +46,7 @@ const AddArea = ({
     onOpenChange?.(isOpen);
   }, [isOpen, onOpenChange]);
 
-  const handleAddIncome = (data = null) => {
+  const handleAddIncome = async (data = null) => {
     const itemData = data || {
       name: incomeName.trim(),
       amount: parseFloat(incomeAmount),
@@ -73,19 +66,28 @@ const AddArea = ({
       amount: itemData.amount,
       period: itemData.period,
       isExternal: isExternalIncome,
+      type: "income", // Required for cardData structure
     };
 
-    onAddIncome(newIncome);
+    // Collapse AddArea immediately for better UX
+    setIsOpen(false);
 
-    // Reset form only if not from voice input
+    // Reset form immediately
     if (!data) {
       setIncomeName("");
       setIncomeAmount("");
       setIncomePeriod("monthly");
     }
+
+    // Just pass the card object back to the app
+    try {
+      await onAddCardItem(newIncome);
+    } catch (error) {
+      console.error("Failed to save card:", error);
+    }
   };
 
-  const handleAddCost = (data = null) => {
+  const handleAddCost = async (data = null) => {
     const itemData = data || {
       name: costName.trim(),
       amount: parseFloat(costAmount),
@@ -97,27 +99,35 @@ const AddArea = ({
       !itemData.amount ||
       isNaN(itemData.amount) ||
       itemData.amount <= 0
-    ) {
+    )
       return;
-    }
 
     const newCost = {
       name: capitalizeFirstLetter(itemData.name),
       amount: itemData.amount,
-      period: itemData.period,
+      period: costPeriod,
+      type: "expense",
     };
 
-    onAddCost(newCost);
+    // Collapse AddArea immediately for better UX
+    setIsOpen(false);
 
-    // Reset form only if not from voice input
+    // Reset form immediately
     if (!data) {
       setCostName("");
       setCostAmount("");
       setCostPeriod("monthly");
     }
+
+    // Just pass the card object back to the app
+    try {
+      await onAddCardItem(newCost);
+    } catch (error) {
+      console.error("Failed to save card:", error);
+    }
   };
 
-  const handleAddGoal = (data = null) => {
+  const handleAddGoal = async (data = null) => {
     const itemData = data || {
       name: goalName.trim(),
       price: parseFloat(goalPrice),
@@ -139,21 +149,30 @@ const AddArea = ({
       name: capitalizeFirstLetter(itemData.name),
       price: itemData.price,
       dailyContribution: itemData.dailyContribution,
+      type: "goal",
     };
 
-    onAddGoal(newGoal);
+    // Collapse AddArea immediately for better UX
+    setIsOpen(false);
 
-    // Reset form only if not from voice input
+    // Reset form immediately
     if (!data) {
       setGoalName("");
       setGoalPrice("");
       setDailyContribution("");
     }
+
+    // Just pass the card object back to the app
+    try {
+      await onAddCardItem(newGoal);
+    } catch (error) {
+      console.error("Failed to save goal:", error);
+    }
   };
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
-      if (activeTab === "income") {
+      if (activeTab === "incomes") {
         handleAddIncome();
       } else if (activeTab === "expenses") {
         handleAddCost();
@@ -167,7 +186,7 @@ const AddArea = ({
     const currencySymbol = getCurrencySymbol(selectedCurrency);
 
     switch (activeTab) {
-      case "income":
+      case "incomes":
         return {
           title: "Add Income",
           fields: [
@@ -289,7 +308,7 @@ const AddArea = ({
           </svg>
         </h2>
         <div className="flex items-center gap-2">
-          {activeTab === "income" && (
+          {activeTab === "incomes" && (
             <span onClick={(e) => e.stopPropagation()}>
               <SwitchToggle
                 value={isExternalIncome}
@@ -304,9 +323,9 @@ const AddArea = ({
           <span onClick={(e) => e.stopPropagation()}>
             <VoiceInput
               activeTab={activeTab}
-              onAddIncome={onAddIncome}
-              onAddCost={onAddCost}
-              onAddGoal={onAddGoal}
+              onAddIncome={handleAddIncome}
+              onAddCost={handleAddCost}
+              onAddGoal={handleAddGoal}
               selectedCurrency={selectedCurrency}
             />
           </span>

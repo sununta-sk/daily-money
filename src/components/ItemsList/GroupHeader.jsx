@@ -1,17 +1,87 @@
-import React from "react";
+import React, { useState } from "react";
+import { Droppable } from "@hello-pangea/dnd";
 
-const GroupHeader = ({ groupName, itemCount }) => {
+const GroupHeader = ({
+  groupName,
+  itemCount,
+  isCollapsed,
+  onToggleCollapsed,
+  onUpdateGroupName,
+  droppableId,
+  isRoot = false,
+}) => {
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [name, setName] = useState(groupName);
+
+  const handleNameEdit = () => {
+    if (!isRoot) {
+      // Don't allow editing root name
+      setIsEditingName(true);
+    }
+  };
+
+  const handleNameSave = () => {
+    if (name.trim() !== "" && name !== groupName) {
+      onUpdateGroupName?.(groupName, name.trim());
+    }
+    setIsEditingName(false);
+  };
+
+  const handleNameCancel = () => {
+    setName(groupName);
+    setIsEditingName(false);
+  };
+
+  const handleNameKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleNameSave();
+    } else if (e.key === "Escape") {
+      handleNameCancel();
+    }
+  };
+
   return (
-    <div className="p-3 bg-gray-100 rounded-lg border-l-4 border-blue-500 mb-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-gray-800">{groupName}</h3>
-          <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">
-            {itemCount} {itemCount === 1 ? "item" : "items"}
-          </span>
+    <Droppable droppableId={droppableId}>
+      {(provided) => (
+        <div
+          {...provided.droppableProps}
+          ref={provided.innerRef}
+          className="group-header"
+        >
+          <button onClick={onToggleCollapsed} className="group-toggle-btn">
+            <span
+              className={`toggle-icon ${
+                isCollapsed ? "collapsed" : "expanded"
+              }`}
+            >
+              ▼
+            </span>
+            {isEditingName ? (
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={handleNameSave}
+                onKeyDown={handleNameKeyDown}
+                className="group-name-input bg-blue-50 border-2 border-blue-300 rounded px-2 py-1 text-sm font-medium"
+                autoFocus
+              />
+            ) : (
+              <span
+                className={`group-name ${
+                  !isRoot ? "cursor-pointer hover:bg-blue-100" : ""
+                } px-2 py-1 rounded`}
+                onClick={handleNameEdit}
+              >
+                {groupName}
+              </span>
+            )}
+            <span className="item-count">({itemCount})</span>
+          </button>
+          {provided.placeholder}
         </div>
-      </div>
-    </div>
+      )}
+    </Droppable>
   );
 };
 

@@ -103,7 +103,7 @@ const VoiceInput = ({
       // If we have valid extracted data, process it directly
       if (extractedData) {
         try {
-          if (activeTab === "income") {
+          if (activeTab === "incomes") {
             const { name, amount, period } = extractedData;
             if (name && amount && period) {
               const incomeData = {
