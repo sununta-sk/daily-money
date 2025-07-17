@@ -1,60 +1,52 @@
 import {
   doc,
-  getDoc,
-  setDoc,
+  getDoc, // pull
+  setDoc, // push
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
-// Get user settings (or return defaults if not found)
-export const getUserSettings = async (userId) => {
-  const settingsRef = doc(db, "users", userId, "userSettings", "preferences");
-
-  try {
-    const docSnap = await getDoc(settingsRef);
-
-    if (docSnap.exists()) {
-      return docSnap.data();
-    }
-
-    // Return default settings if doc doesn't exist
-    return {
-      activeTab: "expenses",
-      currency: "THB",
-      sortOrder: "newest",
-      moneyInBank: "",
-      spendLimit: "",
-    };
-  } catch {
-    // On error, return same defaults
-    return {
-      activeTab: "expenses",
-      currency: "THB",
-      sortOrder: "newest",
-      moneyInBank: "",
-      spendLimit: "",
-    };
-  }
+export const saveActiveTab = async (userId, tab) => {
+  const activeTabRef = doc(db, "users", userId, "userSettings", "activeTab");
+  await setDoc(activeTabRef, { tab });
 };
 
-// Save or update user settings
-export const saveUserSettings = async (settings, userId) => {
-  const settingsRef = doc(db, "users", userId, "userSettings", "preferences");
+export const saveCurrency = async (userId, currency) => {
+  const currencyRef = doc(db, "users", userId, "userSettings", "currency");
+  await setDoc(currencyRef, { currency });
+};
 
-  try {
-    await updateDoc(settingsRef, {
-      ...settings,
-      updatedAt: serverTimestamp(),
-    });
-    return settings;
-  } catch (error) {
-    // If doc doesn't exist, create it
-    await setDoc(settingsRef, {
-      ...settings,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    return settings;
-  }
+export const saveSpendLimit = async (userId, spendLimit) => {
+  const spendLimitRef = doc(db, "users", userId, "userSettings", "spendLimit");
+  await setDoc(spendLimitRef, { spendLimit });
+};
+
+export const saveMoneyInBank = async (userId, moneyInBank) => {
+  const moneyInBankRef = doc(db, "users", userId, "userSettings", "moneyInBank");
+  await setDoc(moneyInBankRef, { moneyInBank });
+};
+
+export const getMoneyInBank = async (userId) => {
+  const moneyInBankRef = doc(db, "users", userId, "userSettings", "moneyInBank");
+  const docSnap = await getDoc(moneyInBankRef);
+  return docSnap.data()?.moneyInBank;
+};
+
+export const getSpendLimit = async (userId) => {
+  const spendLimitRef = doc(db, "users", userId, "userSettings", "spendLimit");
+  const docSnap = await getDoc(spendLimitRef);
+  return docSnap.data()?.spendLimit;
+};
+
+export const getCurrency = async (userId) => {
+  const currencyRef = doc(db, "users", userId, "userSettings", "currency");
+  const docSnap = await getDoc(currencyRef);
+  return docSnap.data()?.currency;
+};
+
+export const getActiveTab = async (userId) => {
+  const activeTabRef = doc(db, "users", userId, "userSettings", "activeTab");
+  const docSnap = await getDoc(activeTabRef);
+  return docSnap.data()?.activeTab;
 };
