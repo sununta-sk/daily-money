@@ -9,7 +9,7 @@ import { db } from "../firebaseConfig";
 
 // Get user settings (or return defaults if not found)
 export const getUserSettings = async (userId) => {
-  const settingsRef = doc(db, "users", userId, "userSettings", "preferences");
+  const settingsRef = doc(db, "users", userId, "userSettings", "settings");
 
   try {
     const docSnap = await getDoc(settingsRef);
@@ -22,7 +22,6 @@ export const getUserSettings = async (userId) => {
     return {
       activeTab: "expenses",
       currency: "THB",
-      sortOrder: "newest",
       moneyInBank: "",
       spendLimit: "",
     };
@@ -31,7 +30,6 @@ export const getUserSettings = async (userId) => {
     return {
       activeTab: "expenses",
       currency: "THB",
-      sortOrder: "newest",
       moneyInBank: "",
       spendLimit: "",
     };
@@ -40,7 +38,7 @@ export const getUserSettings = async (userId) => {
 
 // Save or update user settings
 export const saveUserSettings = async (settings, userId) => {
-  const settingsRef = doc(db, "users", userId, "userSettings", "preferences");
+  const settingsRef = doc(db, "users", userId, "userSettings", "settings");
 
   try {
     await updateDoc(settingsRef, {
@@ -48,7 +46,7 @@ export const saveUserSettings = async (settings, userId) => {
       updatedAt: serverTimestamp(),
     });
     return settings;
-  } catch (error) {
+  } catch {
     // If doc doesn't exist, create it
     await setDoc(settingsRef, {
       ...settings,
