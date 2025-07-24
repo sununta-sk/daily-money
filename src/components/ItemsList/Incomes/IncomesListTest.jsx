@@ -62,6 +62,7 @@ export function generateTestTreeFromIncomes() {
   // Expanded test tree: 4 headers, each with 2 cards
   return {
     id: "root",
+    name: "Root",
     type: "group",
     collapsed: false,
     listCollapsed: false,
@@ -69,6 +70,7 @@ export function generateTestTreeFromIncomes() {
     children: {
       headerA: {
         id: "headerA",
+        name: "headerA",
         type: "group",
         collapsed: false,
         listCollapsed: false,
@@ -80,6 +82,7 @@ export function generateTestTreeFromIncomes() {
       },
       headerB: {
         id: "headerB",
+        name: "headerB",
         type: "group",
         collapsed: false,
         listCollapsed: false,
@@ -91,6 +94,7 @@ export function generateTestTreeFromIncomes() {
       },
       headerC: {
         id: "headerC",
+        name: "headerC",
         type: "group",
         collapsed: false,
         listCollapsed: false,
@@ -102,6 +106,7 @@ export function generateTestTreeFromIncomes() {
       },
       headerD: {
         id: "headerD",
+        name: "headerD",
         type: "group",
         collapsed: false,
         listCollapsed: false,
@@ -176,18 +181,21 @@ export const testIncomesArray = [
 
 export const testIncomesTree = {
   id: "root",
+  name: "Root",
   type: "group",
   collapsed: false,
   listCollapsed: false,
   children: {
     vip: {
       id: "vip",
+      name: "vip",
       type: "group",
       collapsed: false,
       listCollapsed: false,
       children: {
         business: {
           id: "business",
+          name: "business",
           type: "group",
           collapsed: false,
           listCollapsed: false,
@@ -195,6 +203,7 @@ export const testIncomesTree = {
         },
         agencies: {
           id: "agencies",
+          name: "agencies",
           type: "group",
           collapsed: false,
           listCollapsed: false,
@@ -204,6 +213,7 @@ export const testIncomesTree = {
     },
     passive: {
       id: "passive",
+      name: "passive",
       type: "group",
       collapsed: false,
       listCollapsed: false,
@@ -211,6 +221,7 @@ export const testIncomesTree = {
     },
     family: {
       id: "family",
+      name: "family",
       type: "group",
       collapsed: false,
       listCollapsed: false,
@@ -218,6 +229,7 @@ export const testIncomesTree = {
     },
     hobbies: {
       id: "hobbies",
+      name: "hobbies",
       type: "group",
       collapsed: false,
       listCollapsed: false,

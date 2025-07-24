@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import dndSettings from "../../../dndSettings";
@@ -14,6 +14,41 @@ export default function IncomesGroupHeader(props) {
         node: props.node,
       },
     });
+
+  // Move all hooks to the top
+  const [inputValue, setInputValue] = useState(props.name);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setInputValue(props.name);
+  }, [props.name, props.editing]);
+
+  useEffect(() => {
+    if (props.editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [props.editing]);
+
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleInputBlur = () => {
+    if (inputValue.trim() && inputValue !== props.name) {
+      props.onEditGroupName(props.node.id, inputValue.trim());
+    } else {
+      props.onCancelEdit();
+    }
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleInputBlur();
+    } else if (e.key === "Escape") {
+      props.onCancelEdit();
+    }
+  };
 
   const transitionDurationMs = dndSettings.collidedHeader.transitionSpeedMs;
   const growDownPx = dndSettings.collidedHeader.howMuchHeaderBGrowsDownPx;
@@ -139,12 +174,32 @@ export default function IncomesGroupHeader(props) {
       <span style={{ marginRight: 8, alignSelf: "flex-start" }}>
         {props.node.collapsed ? "▶" : "▼"}
       </span>
-      <span
-        className="font-medium text-gray-800"
-        style={{ alignSelf: "flex-start" }}
-      >
-        {props.node.id}
-      </span>
+      {props.editing ? (
+        <input
+          ref={inputRef}
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          onKeyDown={handleInputKeyDown}
+          style={{
+            fontSize: 16,
+            fontWeight: 500,
+            padding: "2px 6px",
+            borderRadius: 4,
+            border: "1px solid #cbd5e1",
+            outline: "none",
+            minWidth: 80,
+          }}
+          maxLength={32}
+        />
+      ) : (
+        <span
+          className="font-medium text-gray-800"
+          style={{ alignSelf: "flex-start" }}
+        >
+          {props.name}
+        </span>
+      )}
     </div>
   );
 }

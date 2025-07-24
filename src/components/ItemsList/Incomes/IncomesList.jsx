@@ -30,6 +30,8 @@ export default function IncomesList({ userId }) {
   const [huggedHeaderId, setHuggedHeaderId] = useState(null);
   const [dragDirection, setDragDirection] = useState("down"); // Track drag direction
   const [lastMouseY, setLastMouseY] = useState(0); // Track last mouse Y position
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [nextHeaderNum, setNextHeaderNum] = useState(1);
 
   // Helper function to find items in the tree
   const findItemInTree = useCallback((tree, id) => {
@@ -147,6 +149,76 @@ export default function IncomesList({ userId }) {
       setDraggingHeaderId(null);
     }
   }, []);
+
+  function handleCreateGroup() {
+    const newId = `header${nextHeaderNum}`;
+    setNextHeaderNum((n) => n + 1);
+    const newGroup = {
+      id: newId,
+      name: newId,
+      type: "group",
+      collapsed: false,
+      listCollapsed: false,
+      childrenOrder: [],
+      children: {},
+    };
+    setTreeData((prev) => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        childrenOrder: [newId, ...(prev.childrenOrder || [])],
+        children: {
+          [newId]: newGroup,
+          ...(prev.children || {}),
+        },
+      };
+      console.log(
+        "[handleCreateGroup] Added new group:",
+        newGroup,
+        "Updated tree:",
+        updated
+      );
+      return updated;
+    });
+    setCollapsed((prev) => ({ ...prev, [newId]: false }));
+    setEditingGroupId(newId);
+    console.log("[handleCreateGroup] Set editingGroupId:", newId);
+  }
+
+  function handleGroupNameChange(id, newName) {
+    setTreeData((prev) => {
+      if (!prev) return prev;
+      if (!prev.children || !prev.children[id]) return prev;
+      if (!newName || !newName.trim()) return prev;
+      // Only update the name property, not the id
+      const group = prev.children[id];
+      const newChildren = {
+        ...prev.children,
+        [id]: { ...group, name: newName },
+      };
+      const updated = {
+        ...prev,
+        children: newChildren,
+      };
+      console.log(
+        "[handleGroupNameChange] Renamed group:",
+        id,
+        "to name:",
+        newName,
+        "Updated group object:",
+        newChildren[id],
+        "Updated tree:",
+        updated
+      );
+      return updated;
+    });
+    setEditingGroupId(null);
+    setActiveId(null);
+    setDraggingHeaderId(null);
+    setOverId(null);
+    setHuggedHeaderId(null);
+    console.log("[handleGroupNameChange] Cleared editingGroupId and DnD state");
+  }
 
   if (isLoading || !treeData) {
     return <div>Loading incomes...</div>;
@@ -323,103 +395,89 @@ export default function IncomesList({ userId }) {
     return false;
   }
 
+  console.log(
+    "[IncomesList render] editingGroupId:",
+    editingGroupId,
+    "treeData.childrenOrder:",
+    treeData?.childrenOrder,
+    "activeId:",
+    activeId,
+    "draggingHeaderId:",
+    draggingHeaderId,
+    "overId:",
+    overId,
+    "huggedHeaderId:",
+    huggedHeaderId,
+    "filteredFlatItems:",
+    filteredFlatItems
+  );
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragOver={handleDragOver}
-    >
-      <SortableContext
-        items={filteredFlatItems.map((item) => item.id)}
-        strategy={verticalListSortingStrategy}
+    <>
+      <button
+        onClick={handleCreateGroup}
+        style={{
+          margin: "8px 0",
+          padding: "6px 12px",
+          borderRadius: 6,
+          background: "#e0e7ff",
+          color: "#3730a3",
+          fontWeight: 600,
+          border: "none",
+          cursor: "pointer",
+        }}
       >
-        <div>
-          {filteredFlatItems.map((item, index) => {
-            const isHidden = isDescendantOfCollapsed(
-              item.id,
-              treeData,
-              collapsed,
-              getNodeById
-            );
-            if (item.type === "header") {
-              // Always render the real header for all other cases
-              return (
-                <IncomesGroupHeader
-                  key={`header-${item.id}`}
-                  node={{ ...item.node, collapsed: !!collapsed[item.id] }}
-                  index={index}
-                  draggableId={item.id}
-                  onCollapseToggle={() => handleCollapseToggle(item.id)}
-                  style={{ marginLeft: item.depth * 24 }}
-                  overId={overId}
-                  type={item.type}
-                  isInSortableContext={true}
-                  renderKey={renderKey}
-                  huggedHeaderId={huggedHeaderId}
-                  isCollapsed={!!collapsed[item.id]}
-                  isDescendantOfCollapsed={isHidden}
-                  isDragging={item.id === draggingHeaderId}
-                  onDropZoneUpdate={() => {
-                    // Placeholder for future drop zone balancing
-                  }}
-                />
+        + Create Group
+      </button>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+      >
+        <SortableContext
+          items={filteredFlatItems.map((item) => item.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div>
+            {filteredFlatItems.map((item, index) => {
+              const isHidden = isDescendantOfCollapsed(
+                item.id,
+                treeData,
+                collapsed,
+                getNodeById
               );
-            } else if (item.type === "card") {
-              if (isHidden) return null;
-              // Create mock income data for test cards
-              const mockIncome = {
-                id: item.id,
-                name:
-                  item.id.charAt(0).toUpperCase() +
-                  item.id.slice(1).replace(/-/g, " "),
-                amount: Math.floor(Math.random() * 5000) + 500,
-                period: "monthly",
-                source: "Test",
-                userId: userId,
-              };
-              return (
-                <div
-                  key={`card-${item.id}`}
-                  style={{ marginLeft: item.depth * 24 }}
-                >
-                  <IncomesCard income={mockIncome} />
-                </div>
-              );
-            } else {
-              return null;
-            }
-          })}
-        </div>
-      </SortableContext>
-      <DragOverlay>
-        {activeId
-          ? (() => {
-              const activeItem = filteredFlatItems.find(
-                (item) => item.id === activeId
-              );
-              if (activeItem?.type === "header") {
+              if (item.type === "header") {
                 return (
                   <IncomesGroupHeader
-                    node={activeItem.node}
-                    index={0}
-                    draggableId={activeItem.id}
-                    onCollapseToggle={() => {}}
-                    style={{ marginLeft: activeItem.depth * 24 }}
-                    overId={null}
-                    type={activeItem.type}
-                    isInSortableContext={false}
+                    key={`header-${item.id}`}
+                    node={{ ...item.node, collapsed: !!collapsed[item.id] }}
+                    name={item.node.name}
+                    index={index}
+                    draggableId={item.id}
+                    onCollapseToggle={() => handleCollapseToggle(item.id)}
+                    style={{ marginLeft: item.depth * 24 }}
+                    overId={overId}
+                    type={item.type}
+                    isInSortableContext={true}
                     renderKey={renderKey}
-                    isDragging={true}
+                    huggedHeaderId={huggedHeaderId}
+                    isCollapsed={!!collapsed[item.id]}
+                    isDescendantOfCollapsed={isHidden}
+                    isDragging={item.id === draggingHeaderId}
+                    onDropZoneUpdate={() => {}}
+                    editing={editingGroupId === item.id}
+                    onEditGroupName={handleGroupNameChange}
+                    onCancelEdit={() => setEditingGroupId(null)}
                   />
                 );
-              } else if (activeItem?.type === "card") {
-                // Create mock income data for the dragged card
+              } else if (item.type === "card") {
+                if (isHidden) return null;
+                // Create mock income data for test cards
                 const mockIncome = {
-                  id: activeItem.id,
+                  id: item.id,
                   name:
-                    activeItem.id.charAt(0).toUpperCase() +
-                    activeItem.id.slice(1).replace(/-/g, " "),
+                    item.id.charAt(0).toUpperCase() +
+                    item.id.slice(1).replace(/-/g, " "),
                   amount: Math.floor(Math.random() * 5000) + 500,
                   period: "monthly",
                   source: "Test",
@@ -427,21 +485,69 @@ export default function IncomesList({ userId }) {
                 };
                 return (
                   <div
-                    style={{
-                      opacity: dndSettings.draggedCard.overlayOpacity,
-                      transform: `scale(${dndSettings.draggedCard.overlayScale}) rotate(${dndSettings.draggedCard.overlayRotation}deg)`,
-                      pointerEvents: "none",
-                      zIndex: dndSettings.draggedCard.dragOverlayZIndex,
-                    }}
+                    key={`card-${item.id}`}
+                    style={{ marginLeft: item.depth * 24 }}
                   >
                     <IncomesCard income={mockIncome} />
                   </div>
                 );
+              } else {
+                return null;
               }
-              return null;
-            })()
-          : null}
-      </DragOverlay>
-    </DndContext>
+            })}
+          </div>
+        </SortableContext>
+        <DragOverlay>
+          {activeId
+            ? (() => {
+                const activeItem = filteredFlatItems.find(
+                  (item) => item.id === activeId
+                );
+                if (activeItem?.type === "header") {
+                  return (
+                    <IncomesGroupHeader
+                      node={activeItem.node}
+                      index={0}
+                      draggableId={activeItem.id}
+                      onCollapseToggle={() => {}}
+                      style={{ marginLeft: activeItem.depth * 24 }}
+                      overId={null}
+                      type={activeItem.type}
+                      isInSortableContext={false}
+                      renderKey={renderKey}
+                      isDragging={true}
+                    />
+                  );
+                } else if (activeItem?.type === "card") {
+                  // Create mock income data for the dragged card
+                  const mockIncome = {
+                    id: activeItem.id,
+                    name:
+                      activeItem.id.charAt(0).toUpperCase() +
+                      activeItem.id.slice(1).replace(/-/g, " "),
+                    amount: Math.floor(Math.random() * 5000) + 500,
+                    period: "monthly",
+                    source: "Test",
+                    userId: userId,
+                  };
+                  return (
+                    <div
+                      style={{
+                        opacity: dndSettings.draggedCard.overlayOpacity,
+                        transform: `scale(${dndSettings.draggedCard.overlayScale}) rotate(${dndSettings.draggedCard.overlayRotation}deg)`,
+                        pointerEvents: "none",
+                        zIndex: dndSettings.draggedCard.dragOverlayZIndex,
+                      }}
+                    >
+                      <IncomesCard income={mockIncome} />
+                    </div>
+                  );
+                }
+                return null;
+              })()
+            : null}
+        </DragOverlay>
+      </DndContext>
+    </>
   );
 }
