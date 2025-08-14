@@ -1,138 +1,167 @@
-<<<<<<< HEAD
 import React, { useState, useEffect } from "react";
+import { auth } from "./firebaseConfig";
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from "firebase/auth";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { getUserSettings, saveUserSettings } from "./utils/userSettings";
 import Navbar from "./components/NavBar/Navbar";
-import { onAuthChange } from "./firebaseConfig";
-import { useUserSettings } from "./hooks/useUserSettings";
-=======
-import React, { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import AddArea from './components/AddArea';
-import ItemsList from './components/ItemsList';
-import WhaleLogo from './components/WhaleLogo';
-import { onAuthChange, getUserData, signInWithGoogle } from './utils/firebase';
-import { fetchExchangeRates } from './utils/currency';
->>>>>>> d0ef228 (Consolidate report functionality into ItemsList and remove redundant components)
+import AddIncome from "./components/AddArea/AddIncome";
+import AddExpense from "./components/AddArea/AddExpense";
+import AddGoal from "./components/AddArea/AddGoal";
+import IncomesList from "./components/ItemsList/Incomes/IncomesList";
+
+const queryClient = new QueryClient();
+
+function UserSettingsNavbar({ user, activeTab, setActiveTab }) {
+  const queryClient = useQueryClient();
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["userSettings", user?.uid],
+    queryFn: () => getUserSettings(user.uid),
+    enabled: !!user,
+  });
+
+  const mutation = useMutation({
+    mutationFn: (newSettings) => saveUserSettings(newSettings, user.uid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["userSettings", user.uid] });
+    },
+  });
+
+  // Sync local activeTab with settings.activeTab on initial load
+  React.useEffect(() => {
+    if (settings?.activeTab && settings.activeTab !== activeTab) {
+      setActiveTab(settings.activeTab);
+    }
+    // eslint-disable-next-line
+  }, [settings?.activeTab]);
+
+  const updateSettings = (partial) => {
+    mutation.mutate({ ...settings, ...partial });
+  };
+
+  if (isLoading || !settings) return null;
+  
+  return (
+    <Navbar
+      user={user}
+      settings={settings}
+      updateSettings={updateSettings}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+    />
+  );
+}
 
 function App() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = React.useState("expenses");
 
-  // Listen for auth changes
   useEffect(() => {
-    const unsubscribe = onAuthChange(setUser);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
     return () => unsubscribe();
   }, []);
 
-  // Settings hook - always call it, but pass null if no user
-  const { settings, updateSettings } = useUserSettings(user?.uid || null);
-  const { activeTab = "expenses", currency = "THB" } = settings || {};
-
-  return (
-    <div className="h-screen w-full bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 p-3 md:p-4">
-      <div className="flex flex-col h-full gap-2">
-        {/* ===== NAVBAR ===== */}
-        <Navbar
-          activeTab={activeTab}
-          setActiveTab={(tab) => updateSettings({ activeTab: tab })}
-          currency={currency}
-          setCurrency={(cur) => updateSettings({ currency: cur })}
-          user={user}
-        />
+  if (loading) {
+    return (
+      <div className="h-screen w-full bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mx-auto mb-4"></div>
+          <p className="text-white font-medium">Loading...</p>
+        </div>
       </div>
-<<<<<<< HEAD
-=======
     );
   }
 
   if (!user) {
-  return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-4">
-            <WhaleLogo className="w-16 h-16" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily Money</h1>
-          <p className="mb-4 text-gray-600">Please sign in to use the budget dashboard</p>
-              <button
-            onClick={async () => {
-              try {
-                await signInWithGoogle();
-              } catch (error) {
-                console.error('Error signing in:', error);
-              }
-            }}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2 mx-auto text-base"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                Sign in with Google
-              </button>
-            </div>
-          </div>
+    const handleLogin = () => {
+      const provider = new GoogleAuthProvider();
+      signInWithPopup(auth, provider);
+    };
+    return (
+      <div className="h-screen w-full bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 flex items-center justify-center">
+        <button
+          onClick={handleLogin}
+          className="bg-white text-blue-700 px-6 py-3 rounded shadow font-semibold hover:bg-blue-50 transition"
+        >
+          Sign in with Google
+        </button>
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-2 flex flex-col">
-      <Navbar 
-        user={user}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        selectedCurrency={selectedCurrency}
-        setSelectedCurrency={setSelectedCurrency}
-      />
-      
-      <div className="flex flex-col flex-1">
-        {activeTab !== 'report' && (
-          <AddArea 
-            activeTab={activeTab}
-            incomes={incomes}
-            setIncomes={setIncomes}
-            costs={costs}
-            setCosts={setCosts}
-            goals={goals}
-            setGoals={setGoals}
-            selectedCurrency={selectedCurrency}
+    <QueryClientProvider client={queryClient}>
+      <div className="h-screen w-full bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 flex flex-col">
+        <div className="flex flex-col gap-[2px] h-full p-4">
+          <UserSettingsNavbar
             user={user}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
           />
-        )}
-
-        <ItemsList
-          activeTab={activeTab}
-          incomes={incomes}
-          costs={costs}
-          goals={goals}
-          setIncomes={setIncomes}
-          setCosts={setCosts}
-          setGoals={setGoals}
-          moneyInBank={moneyInBank}
-          setMoneyInBank={setMoneyInBank}
-          spendLimit={spendLimit}
-          setSpendLimit={setSpendLimit}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          selectedCurrency={selectedCurrency}
-          user={user}
-        />
+          {user && <TanStackAddAreaWrapper user={user} activeTab={activeTab} />}
+        </div>
       </div>
->>>>>>> d0ef228 (Consolidate report functionality into ItemsList and remove redundant components)
-    </div>
+    </QueryClientProvider>
   );
+}
+
+// Helper to get settings and show AddIncome or AddExpense if needed
+function TanStackAddAreaWrapper({ user, activeTab }) {
+  const [addIncomeToOrderFn, setAddIncomeToOrderFn] = useState(null);
+
+  // No longer fetch settings.activeTab here, just use local activeTab
+  if (activeTab === "incomes") {
+    return (
+      <>
+        <div className="bg-white/70 rounded-2xl shadow-md">
+          <AddIncome
+            userId={user.uid}
+            addIncomeToOrderFn={addIncomeToOrderFn}
+          />
+        </div>
+        <div className="bg-white/70 rounded-2xl shadow-md">
+          <IncomesList
+            userId={user.uid}
+            onAddIncomeToOrder={setAddIncomeToOrderFn}
+          />
+        </div>
+      </>
+    );
+  }
+  if (activeTab === "expenses") {
+    return (
+      <>
+        <div className="bg-white/70 rounded-2xl shadow-md">
+          <AddExpense userId={user.uid} />
+        </div>
+        {/* ExpensesList would go here */}
+      </>
+    );
+  }
+  if (activeTab === "goals") {
+    return (
+      <>
+        <div className="bg-white/70 rounded-2xl shadow-md">
+          <AddGoal userId={user.uid} />
+        </div>
+        {/* GoalsList would go here */}
+      </>
+    );
+  }
+  return null;
 }
 
 export default App;

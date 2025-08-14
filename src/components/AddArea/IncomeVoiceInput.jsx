@@ -1,14 +1,7 @@
 import React, { useState, useRef } from "react";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { capitalizeFirstLetter } from "../../utils/formatters";
 
-const VoiceInput = ({
-  activeTab,
-  onAddIncome,
-  onAddCost,
-  onAddGoal,
-  selectedCurrency,
-}) => {
+const IncomeVoiceInput = ({ selectedCurrency, onVoiceResult }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
@@ -17,21 +10,17 @@ const VoiceInput = ({
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
       mediaRecorderRef.current = new MediaRecorder(stream);
       audioChunksRef.current = [];
-
       mediaRecorderRef.current.ondataavailable = (event) => {
         audioChunksRef.current.push(event.data);
       };
-
       mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, {
           type: "audio/webm",
         });
         await processAudio(audioBlob);
       };
-
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch {
@@ -49,101 +38,42 @@ const VoiceInput = ({
     }
   };
 
-  const getTabSpecificPrompt = () => {
+  const getIncomePrompt = () => {
     const currencyContext = `The user is using ${selectedCurrency} currency. Return amounts in the original currency mentioned - do not convert currencies.`;
-
-    switch (activeTab) {
-      case "income":
-        return `${currencyContext} Extract income information from this voice recording. Return ONLY a JSON object with these exact fields: {"name": "income name", "amount": number, "period": "daily|weekly|monthly|yearly|one-off"}. Example: "salary 50000 monthly" should return {"name": "salary", "amount": 50000, "period": "monthly"}. If any field is unclear, use null for that field.`;
-      case "expenses":
-        return `${currencyContext} Extract expense information from this voice recording. Return ONLY a JSON object with these exact fields: {"name": "expense name", "amount": number, "period": "daily|weekly|monthly|yearly|one-off"}. Example: "rent 15000 monthly" should return {"name": "rent", "amount": 15000, "period": "monthly"}. If any field is unclear, use null for that field.`;
-      case "goals":
-        return `${currencyContext} Extract goal information from this voice recording. Return ONLY a JSON object with these exact fields: {"name": "goal name", "price": number, "dailyContribution": number}. Example: "new phone 25000 100 daily" should return {"name": "new phone", "price": 25000, "dailyContribution": 100}. If any field is unclear, use null for that field.`;
-      default:
-        return `Extract information from this voice recording and return it as a JSON object.`;
-    }
+    return `${currencyContext} Extract income information from this voice recording. Return ONLY a JSON object with these exact fields: {"name": "income name", "amount": number, "period": "daily|weekly|monthly|yearly|one-off", "source": "internal|external"}. Example: "salary 50000 monthly external" should return {"name": "salary", "amount": 50000, "period": "monthly", "source": "external"}. If any field is unclear, use null for that field.`;
   };
 
   const processAudio = async (audioBlob) => {
     setIsProcessing(true);
     try {
-      // Convert audio blob to base64
       const arrayBuffer = await audioBlob.arrayBuffer();
       const base64Audio = btoa(
         String.fromCharCode(...new Uint8Array(arrayBuffer))
       );
-
-      // Call the smart function
       const functions = getFunctions();
       const processSmartRequest = httpsCallable(
         functions,
         "processSmartRequest"
       );
-
       const result = await processSmartRequest({
         audioFile: base64Audio,
-        prompt: getTabSpecificPrompt(),
+        prompt: getIncomePrompt(),
         returnTranscript: false,
       });
-
-      // Extract the response and try to parse as JSON
       const responseText = result.data.response;
       let extractedData = null;
-
       try {
-        // Try to extract JSON from the response - handle multiline JSON
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           extractedData = JSON.parse(jsonMatch[0]);
         }
-      } catch {
-        // Handle JSON parse error silently
-      }
-
-      // If we have valid extracted data, process it directly
-      if (extractedData) {
-        try {
-          if (activeTab === "incomes") {
-            const { name, amount, period } = extractedData;
-            if (name && amount && period) {
-              const incomeData = {
-                name: capitalizeFirstLetter(name.trim()),
-                amount: parseFloat(amount),
-                period: period,
-                isExternal: true,
-              };
-              onAddIncome(incomeData);
-            }
-          } else if (activeTab === "expenses") {
-            const { name, amount, period } = extractedData;
-            if (name && amount && period) {
-              const costData = {
-                name: capitalizeFirstLetter(name.trim()),
-                amount: parseFloat(amount),
-                period: period,
-              };
-              onAddCost(costData);
-            }
-          } else if (activeTab === "goals") {
-            const { name, price, dailyContribution } = extractedData;
-            if (name && price && dailyContribution) {
-              const goalData = {
-                name: capitalizeFirstLetter(name.trim()),
-                price: parseFloat(price),
-                dailyContribution: parseFloat(dailyContribution),
-              };
-              onAddGoal(goalData);
-            }
-          }
-        } catch {
-          // Handle error silently
-        }
-      }
-    } catch {
-      // Handle error silently
-    } finally {
-      setIsProcessing(false);
-    }
+      } catch {}
+      // Debug: log the extracted data from GPT
+      console.log("[INCOME VOICE EXTRACTED]", extractedData);
+      // Pass a ready-to-save object to parent (defaults handled in parent)
+      if (onVoiceResult) onVoiceResult(extractedData);
+    } catch {}
+    setIsProcessing(false);
   };
 
   return (
@@ -194,4 +124,4 @@ const VoiceInput = ({
   );
 };
 
-export default VoiceInput;
+export default IncomeVoiceInput;
